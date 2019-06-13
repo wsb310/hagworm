@@ -1,0 +1,3 @@
+
+0 0 * * * /docker/log-backup.sh /nginx-log nginx_error
+0 0 * * * /docker/log-backup.sh /nginx-log nginx_access
