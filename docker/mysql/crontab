@@ -1,0 +1,2 @@
+
+0 0,6,12,18 * * * /docker/mysql-backup.sh
