@@ -102,3 +102,11 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Other files and folders
+.idea/
+.vscode/
+.settings/
+/example/static.conf
+/example/dynamic.conf
+
