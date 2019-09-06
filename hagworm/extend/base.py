@@ -282,21 +282,21 @@ class Utils:
         return True if result else False
 
     @classmethod
-    def randhit(cls, iterable, probs):
+    def randhit(cls, iterable, prob):
 
-        if not cls.is_iterable(probs):
-            probs = [probs(val) for val in iterable]
+        if callable(prob):
+            prob = [prob(val) for val in iterable]
 
-        prob_sum = sum(probs)
+        prob_sum = sum(prob)
 
         if prob_sum > 0:
 
             prob_hit = 0
             prob_sum = cls.randint(0, prob_sum)
 
-            for index in range(0, len(probs)):
+            for index in range(0, len(prob)):
 
-                prob_hit += probs[index]
+                prob_hit += prob[index]
 
                 if prob_hit >= prob_sum:
                     return iterable[index]
@@ -352,7 +352,7 @@ class Utils:
 
         while num > 0:
             num, rem = divmod(num, 24)
-            result = r'{0}{1}'.format(base[rem], result)
+            result = base[rem] + result
 
         return result
 
@@ -370,7 +370,7 @@ class Utils:
 
         while num > 0:
             num, rem = divmod(num, 36)
-            result = r'{0}{1}'.format(base[rem], result)
+            result = base[rem] + result
 
         return r'{0:0>{1:d}s}'.format(result, align)
 
@@ -388,7 +388,7 @@ class Utils:
 
         while num > 0:
             num, rem = divmod(num, 62)
-            result = r'{0}{1}'.format(base[rem], result)
+            result = base[rem] + result
 
         return r'{0:0>{1:d}s}'.format(result, align)
 
@@ -662,7 +662,7 @@ class Utils:
             if check_sum > 0:
                 check_sum = 10 - check_sum
 
-            result = r'{0:s}{1:d}'.format(val, check_sum)
+            result = val + str(check_sum)
 
         return result
 
@@ -695,7 +695,7 @@ class Utils:
             params = {key: val for key,
                       val in params.items() if key not in filters}
 
-        return r'&'.join(r'{0}={1}'.format(key, val) for key, val in sorted(params.items(), key=lambda x: x[0]))
+        return r'&'.join(f'{key}={val}' for key, val in sorted(params.items(), key=lambda x: x[0]))
 
     @classmethod
     def params_sign(cls, *args, **kwargs):

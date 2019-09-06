@@ -15,15 +15,14 @@ class EventDispatcher:
 
     def dispatch(self, _type, *args, **kwargs):
 
-        Utils.log.debug(
-            r'dispatch event {0} {1} {2}'.format(_type, args, kwargs))
+        Utils.log.debug(f'dispatch event {_type} {args} {kwargs}')
 
         if _type in self._observers:
             self._observers[_type](*args, **kwargs)
 
     def add_listener(self, _type, _callable):
 
-        Utils.log.debug(r'add event listener => type({0}) function({1})'.format(_type, id(_callable)))
+        Utils.log.debug(f'add event listener => type({_type}) function({id(_callable)})')
 
         result = False
 
@@ -37,7 +36,7 @@ class EventDispatcher:
 
     def remove_listener(self, _type, _callable):
 
-        Utils.log.debug(r'remove event listener => type({0}) function({1})'.format(_type, id(_callable)))
+        Utils.log.debug(f'remove event listener => type({_type}) function({id(_callable)})')
 
         result = False
 

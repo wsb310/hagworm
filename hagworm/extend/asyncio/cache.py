@@ -36,7 +36,7 @@ class RedisPool:
 
         self._pool = await aioredis.create_pool(**self._settings)
 
-        Utils.log.info(r'Redis {0} initialized'.format(self._settings[r'address']))
+        Utils.log.info(f"Redis {self._settings[r'address']} initialized")
 
     def get_client(self):
 
@@ -54,7 +54,7 @@ class RedisDelegate:
 
         self._redis_pool = None
 
-        self._redis_context = WeakContextVar(r'cache_client_{0}'.format(Utils.uuid1()))
+        self._redis_context = WeakContextVar(f'cache_client_{Utils.uuid1()}')
 
     async def async_init_redis(self, *args, **kwargs):
 
@@ -120,7 +120,9 @@ class MCache(aioredis.Redis, AsyncContextManager):
         if self._pool_or_conn is None and self._pool:
 
             if self._pool.freesize < REDIS_POOL_WATER_LEVEL_WARNING_LINE:
-                Utils.log.warning(r'Redis connection pool not enough: {0}({1}/{2})'.format(self._pool.freesize, self._pool.size, self._pool.maxsize))
+                Utils.log.warning(
+                    f'Redis connection pool not enough: {self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+                )
 
             self._pool_or_conn = await self._pool.acquire()
 
@@ -178,14 +180,14 @@ class MCache(aioredis.Redis, AsyncContextManager):
     def key(self, key, *args, **kwargs):
 
         if self._key_prefix:
-            key = r'{0}_{1}'.format(self._key_prefix, key)
+            key = f'{self._key_prefix}_{key}'
 
         if not args and not kwargs:
             return key
 
         sign = Utils.params_sign(*args, **kwargs)
 
-        return r'{0}_{1}'.format(key, sign)
+        return f'{key}_{sign}'
 
     def allocate_lock(self, key, expire=60):
 
@@ -322,7 +324,7 @@ end
         self._cache = cache
         self._expire = expire
 
-        self._lock_tag = r'process_lock_{0}'.format(key)
+        self._lock_tag = f'process_lock_{key}'
         self._lock_val = Utils.uuid1().encode()
 
         self._locked = False
@@ -385,7 +387,7 @@ class MutexLock:
         self._cache = cache
         self._expire = expire
 
-        self._lock_tag = r'mutex_lock_{0}'.format(key)
+        self._lock_tag = f'mutex_lock_{key}'
         self._lock_val = Utils.uuid1().encode()
 
         self._locked = False

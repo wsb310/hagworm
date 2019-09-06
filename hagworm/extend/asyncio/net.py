@@ -69,7 +69,7 @@ class _HTTPClient:
         for times in range(0, self._retry_count):
 
             if times > 0:
-                Utils.log.debug(r'{0} {1} => retry:{2}'.format(method, url, times))
+                Utils.log.debug(f'{method} {url} => retry:{times}')
 
             try:
 
@@ -81,13 +81,7 @@ class _HTTPClient:
 
                         response = await self._handle_response(_response)
 
-                Utils.log.info(
-                    r'{0} {1} => status:{2}'.format(
-                        method,
-                        url,
-                        _response.status
-                    )
-                )
+                Utils.log.info(f'{method} {url} => status:{_response.status}')
 
             except aiohttp.ClientResponseError as err:
 

@@ -93,7 +93,7 @@ class Protocol:
     @property
     def client_address(self):
 
-        return r'{0}:{1}'.format(*self._address)
+        return Utils.join_str(self._address, r':')
 
     async def close(self):
 

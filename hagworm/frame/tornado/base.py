@@ -88,15 +88,15 @@ class _LauncherBase(TaskInterface):
 
         if self._background_service is not None:
             self._background_service.start()
-            Utils.log.success(r'Background service no.{0} running...'.format(self._process_id))
+            Utils.log.success(f'Background service no.{self._process_id} running...')
 
         if self._process_id == 0 and self._background_process is not None:
             self._background_process.start()
-            Utils.log.success(r'Background process no.{0} running...'.format(self._process_id))
+            Utils.log.success(f'Background process no.{self._process_id} running...')
         else:
             self._server.add_sockets(self._sockets)
 
-        Utils.log.success(r'Startup server no.{0}'.format(self._process_id))
+        Utils.log.success(f'Startup server no.{self._process_id}')
 
         self._event_loop.run_forever()
 
@@ -110,7 +110,7 @@ class _LauncherBase(TaskInterface):
 
         self._event_loop.stop()
 
-        Utils.log.success(r'Shutdown server no.{0}: code.{1}'.format(self._process_id, code))
+        Utils.log.success(f'Shutdown server no.{self._process_id}: code.{code}')
 
     def is_running(self):
 

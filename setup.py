@@ -7,7 +7,7 @@ with open(r'README.md', r'r') as stream:
 
 setuptools.setup(
     name=r'hagworm',
-    version=r'3.0.0',
+    version=r'3.0.1',
     license=r'Apache License Version 2.0',
     platforms=[r'all'],
     author=r'Shaobo.Wang',
@@ -43,6 +43,8 @@ setuptools.setup(
         r'Sphinx==2.1.2',
         r'SQLAlchemy==1.3.5',
         r'tornado==6.0.3',
+        r'WTForms==2.2.1',
+        r'wtforms-tornado==0.0.2',
         r'xlwt==1.3.0',
         r'xmltodict==0.12.0',
     ],

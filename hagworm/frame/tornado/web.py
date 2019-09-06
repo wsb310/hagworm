@@ -6,9 +6,11 @@ import functools
 from tornado.web import RequestHandler
 from tornado.websocket import WebSocketHandler
 
-from hagworm.extend.struct import ErrorData
+from hagworm.extend.struct import ErrorData, Result
 from hagworm.extend.asyncio.base import Utils
 from hagworm.extend.asyncio.net import DownloadBuffer
+
+from wtforms_tornado import Form
 
 
 class HttpBasicAuth:
@@ -22,9 +24,9 @@ class HttpBasicAuth:
     def __call__(self, func):
 
         @functools.wraps(func)
-        def _wrapper(request, *args, **kwargs):
+        def _wrapper(handler, *args, **kwargs):
 
-            auth_header = request.get_header(r'Authorization')
+            auth_header = handler.get_header(r'Authorization')
 
             try:
 
@@ -32,20 +34,59 @@ class HttpBasicAuth:
 
                     auth_info = Utils.b64_decode(auth_header.split(r' ', 2)[1])
 
-                    if auth_info == r'{0}:{1}'.format(self._username, self._password):
-                        return func(request, *args, **kwargs)
+                    if auth_info == f'{self._username}:{self._password}':
+                        return func(handler, *args, **kwargs)
 
             except Exception as err:
 
                 Utils.log.error(err)
 
-            request.set_header(
+            handler.set_header(
                 r'WWW-Authenticate',
-                r'Basic realm="{0}"'.format(self._realm)
+                f'Basic realm="{self._realm}"'
             )
-            request.set_status(401)
+            handler.set_status(401)
 
-            return request.finish()
+            return handler.finish()
+
+        return _wrapper
+
+
+class MethodWrapper:
+
+    def __init__(self, form_cls=None):
+
+        if not issubclass(form_cls, Form):
+            raise TypeError(r'Dot Implemented Form Interface')
+
+        self._form_cls = form_cls
+
+    def __call__(self, func):
+
+        @functools.wraps(func)
+        async def _wrapper(handler, *args, **kwargs):
+
+            form = self._form_cls(handler.request.arguments)
+
+            setattr(handler, r'form', form)
+            setattr(handler, r'data', form.data)
+
+            if form.validate():
+
+                resp = func(handler, *args, **kwargs)
+
+                if Utils.isawaitable(resp):
+                    resp = await resp
+
+                if isinstance(resp, Result):
+                    return handler.write_json(resp)
+
+            else:
+
+                return handler.write_json(
+                    Result(-1, r'bad parameter', form.errors),
+                    400
+                )
 
         return _wrapper
 
@@ -55,12 +96,14 @@ class _BaseHandlerMixin(Utils):
     @property
     def request_module(self):
 
-        return r'{0}.{1}'.format(self.module, self.method)
+        return f'{self.module}.{self.method}'
 
     @property
     def module(self):
 
-        return r'{0}.{1}'.format(self.__class__.__module__, self.__class__.__name__)
+        _class = self.__class__
+
+        return f'{_class.__module__}.{_class.__name__}'
 
     @property
     def method(self):
@@ -260,8 +303,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
 
             except BaseException:
 
-                self.log.debug(
-                    r'Invalid application/json body: {0}'.format(self.body))
+                self.log.debug(f'Invalid application/json body: {self.body}')
 
     def get_files(self, name):
         """
@@ -276,8 +318,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
 
         for index in range(len(self.files)):
 
-            file_data = self.files.get(
-                r'{0:s}[{1:d}]'.format(name, index), None)
+            file_data = self.files.get(f'{name}[{index}]', None)
 
             if file_data is not None:
                 self.list_extend(result, file_data)
@@ -462,7 +503,7 @@ class DownloadAgent(RequestBaseHandler, DownloadBuffer):
             if file_name:
                 self.set_header(
                     r'Content-Disposition',
-                    r'attachment;filename={0:s}'.format(file_name)
+                    f'attachment;filename={file_name}'
                 )
 
             Utils.ensure_future(self.fetch(url, params=params, cookies=cookies, headers=headers))

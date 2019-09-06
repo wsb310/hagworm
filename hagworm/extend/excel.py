@@ -62,11 +62,9 @@ class ExcelWT(Workbook):
 
     def write_request(self, request):
 
-        filename = r'{0:s}.{1:s}.xls'.format(self._book_name, datetime.today().strftime('%y%m%d.%H%M%S'))
+        filename = f"{self._book_name}.{datetime.today().strftime('%y%m%d.%H%M%S')}.xls"
 
         request.set_header(r'Content-Type', r'application/vnd.ms-excel')
-        request.set_header(r'Content-Disposition', r'attachment;filename={0:s}'.format(filename))
+        request.set_header(r'Content-Disposition', f'attachment;filename={filename}')
 
-        filedata = self.get_file()
-
-        return request.finish(filedata)
+        return request.finish(self.get_file())

@@ -33,9 +33,7 @@ class MongoPool:
 
         self._pool = AsyncIOMotorClient(**settings)
 
-        Utils.log.info(
-            r'Mongo {0} initialized'.format(host)
-        )
+        Utils.log.info(f'MongoDB {host} initialized')
 
     def get_database(self, db_name):
 
@@ -136,7 +134,9 @@ class MySQLPool:
         global MYSQL_POLL_WATER_LEVEL_WARNING_LINE
 
         if self._pool.freesize < MYSQL_POLL_WATER_LEVEL_WARNING_LINE:
-            Utils.log.warning(r'MySQL connection pool not enough: {0}({1}/{2})'.format(self._pool.freesize, self._pool.size, self._pool.maxsize))
+            Utils.log.warning(
+                f'MySQL connection pool not enough: {self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+            )
 
         conn = await self._pool.acquire()
 
@@ -174,8 +174,8 @@ class MySQLDelegate:
 
         context_uuid = Utils.uuid1()
 
-        self._mysql_rw_context = WeakContextVar(r'mysql_rw_client_{0}'.format(context_uuid))
-        self._mysql_ro_context = WeakContextVar(r'mysql_ro_client_{0}'.format(context_uuid))
+        self._mysql_rw_context = WeakContextVar(f'mysql_rw_client_{context_uuid}')
+        self._mysql_ro_context = WeakContextVar(f'mysql_ro_client_{context_uuid}')
 
     async def async_init_mysql_rw(self, *args, **kwargs):
 

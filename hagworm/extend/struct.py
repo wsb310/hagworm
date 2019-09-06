@@ -12,9 +12,9 @@ from configparser import RawConfigParser
 
 class Result(dict):
 
-    def __init__(self, code=0, msg=r'', data=None, extra=None):
+    def __init__(self, code=0, data=None, extra=None):
 
-        super().__init__(code=code, msg=msg)
+        super().__init__(code=code)
 
         if data is not None:
             self.__setitem__(r'data', data)
@@ -30,11 +30,6 @@ class Result(dict):
     def code(self):
 
         return self.get(r'code')
-
-    @property
-    def msg(self):
-
-        return self.get(r'msg')
 
     @property
     def data(self):
@@ -179,10 +174,6 @@ class ByteArray(BytesIO):
 
         self._endian = self.NETWORK
 
-    def _fmt_str(self, val):
-
-        return r'{0:s}{1:s}'.format(self._endian, val)
-
     def get_endian(self):
 
         return self._endian
@@ -193,131 +184,131 @@ class ByteArray(BytesIO):
 
     def read_pad_byte(self, _len):
 
-        struct.unpack(self._fmt_str(r'{0:d}x'.format(_len)), self.read(_len))
+        struct.unpack(f'{self._endian}{_len}x', self.read(_len))
 
     def write_pad_byte(self, _len):
 
-        self.write(struct.pack(self._fmt_str(r'{0:d}x'.format(_len))))
+        self.write(struct.pack(f'{self._endian}{_len}x'))
 
     def read_char(self):
 
-        return struct.unpack(self._fmt_str(r'c'), self.read(1))[0]
+        return struct.unpack(f'{self._endian}c', self.read(1))[0]
 
     def write_char(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'c'), val))
+        self.write(struct.pack(f'{self._endian}c', val))
 
     def read_signed_char(self):
 
-        return struct.unpack(self._fmt_str(r'b'), self.read(1))[0]
+        return struct.unpack(f'{self._endian}b', self.read(1))[0]
 
     def write_signed_char(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'b'), val))
+        self.write(struct.pack(f'{self._endian}b', val))
 
     def read_unsigned_char(self):
 
-        return struct.unpack(self._fmt_str(r'B'), self.read(1))[0]
+        return struct.unpack(f'{self._endian}B', self.read(1))[0]
 
     def write_unsigned_char(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'B'), val))
+        self.write(struct.pack(f'{self._endian}B', val))
 
     def read_bool(self):
 
-        return struct.unpack(self._fmt_str(r'?'), self.read(1))[0]
+        return struct.unpack(f'{self._endian}?', self.read(1))[0]
 
     def write_bool(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'?'), val))
+        self.write(struct.pack(f'{self._endian}?', val))
 
     def read_short(self):
 
-        return struct.unpack(self._fmt_str(r'h'), self.read(2))[0]
+        return struct.unpack(f'{self._endian}h', self.read(2))[0]
 
     def write_short(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'h'), val))
+        self.write(struct.pack(f'{self._endian}h', val))
 
     def read_unsigned_short(self):
 
-        return struct.unpack(self._fmt_str(r'H'), self.read(2))[0]
+        return struct.unpack(f'{self._endian}H', self.read(2))[0]
 
     def write_unsigned_short(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'H'), val))
+        self.write(struct.pack(f'{self._endian}H', val))
 
     def read_int(self):
 
-        return struct.unpack(self._fmt_str(r'i'), self.read(4))[0]
+        return struct.unpack(f'{self._endian}i', self.read(4))[0]
 
     def write_int(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'i'), val))
+        self.write(struct.pack(f'{self._endian}i', val))
 
     def read_unsigned_int(self):
 
-        return struct.unpack(self._fmt_str(r'I'), self.read(4))[0]
+        return struct.unpack(f'{self._endian}I', self.read(4))[0]
 
     def write_unsigned_int(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'I'), val))
+        self.write(struct.pack(f'{self._endian}I', val))
 
     def read_long(self):
 
-        return struct.unpack(self._fmt_str(r'l'), self.read(8))[0]
+        return struct.unpack(f'{self._endian}l', self.read(8))[0]
 
     def write_long(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'l'), val))
+        self.write(struct.pack(f'{self._endian}l', val))
 
     def read_unsigned_long(self):
 
-        return struct.unpack(self._fmt_str(r'L'), self.read(8))[0]
+        return struct.unpack(f'{self._endian}L', self.read(8))[0]
 
     def write_unsigned_long(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'L'), val))
+        self.write(struct.pack(f'{self._endian}L', val))
 
     def read_long_long(self):
 
-        return struct.unpack(self._fmt_str(r'q'), self.read(8))[0]
+        return struct.unpack(f'{self._endian}q', self.read(8))[0]
 
     def write_long_long(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'q'), val))
+        self.write(struct.pack(f'{self._endian}q', val))
 
     def read_unsigned_long_long(self):
 
-        return struct.unpack(self._fmt_str(r'Q'), self.read(8))[0]
+        return struct.unpack(f'{self._endian}Q', self.read(8))[0]
 
     def write_unsigned_long_long(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'Q'), val))
+        self.write(struct.pack(f'{self._endian}Q', val))
 
     def read_float(self):
 
-        return struct.unpack(self._fmt_str(r'f'), self.read(4))[0]
+        return struct.unpack(f'{self._endian}f', self.read(4))[0]
 
     def write_float(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'f'), val))
+        self.write(struct.pack(f'{self._endian}f', val))
 
     def read_double(self):
 
-        return struct.unpack(self._fmt_str(r'd'), self.read(8))[0]
+        return struct.unpack(f'{self._endian}d', self.read(8))[0]
 
     def write_double(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'd'), val))
+        self.write(struct.pack(f'{self._endian}d', val))
 
     def read_bytes(self, _len):
 
-        return struct.unpack(self._fmt_str(r'{0:d}s'.format(_len)), self.read(_len))[0]
+        return struct.unpack(f'{self._endian}{_len}s', self.read(_len))[0]
 
     def write_bytes(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'{0:d}s'.format(len(val))), val))
+        self.write(struct.pack(f'{self._endian}{len(val)}s', val))
 
     def read_string(self, _len):
 
@@ -329,11 +320,11 @@ class ByteArray(BytesIO):
 
     def read_pascal_bytes(self, _len):
 
-        return struct.unpack(self._fmt_str(r'{0:d}p'.format(_len)), self.read(_len))[0]
+        return struct.unpack(f'{self._endian}{_len}p', self.read(_len))[0]
 
     def write_pascal_bytes(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'{0:d}p'.format(len(val))), val))
+        self.write(struct.pack(f'{self._endian}{len(val)}p', val))
 
     def read_pascal_string(self, _len):
 
@@ -345,11 +336,11 @@ class ByteArray(BytesIO):
 
     def read_python_int(self, _len):
 
-        return struct.unpack(self._fmt_str(r'{0:d}P'.format(_len)), self.read(_len))[0]
+        return struct.unpack(f'{self._endian}{_len}P', self.read(_len))[0]
 
     def write_python_int(self, val):
 
-        self.write(struct.pack(self._fmt_str(r'{0:d}P'.format(len(val))), val))
+        self.write(struct.pack(f'{self._endian}{len(val)}P', val))
 
 
 class ConfigParser(RawConfigParser):
