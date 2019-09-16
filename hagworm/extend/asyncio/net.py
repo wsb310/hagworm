@@ -208,6 +208,12 @@ class HTTPClientPool(HTTPClient):
         )
 
         self._session_config[r'connector'] = self._tcp_connector
+        self._session_config[r'connector_owner'] = False
+
+    async def close(self):
+
+        if not self._tcp_connector.closed:
+            await self._tcp_connector.close()
 
 
 class HTTPTextClientPool(_HTTPTextMixin, HTTPClientPool):

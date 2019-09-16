@@ -179,8 +179,7 @@ class Utils:
     @classmethod
     def split_int(cls, val, sep=r',', minsplit=0, maxsplit=-1):
 
-        result = [int(item.strip()) for item in val.split(
-            sep, maxsplit) if item.strip().isdigit()]
+        result = [int(item.strip()) for item in val.split(sep, maxsplit) if item.strip().isdigit()]
 
         fill = minsplit - len(result)
 
@@ -214,7 +213,10 @@ class Utils:
     @classmethod
     def split_str(cls, val, sep=r'|', minsplit=0, maxsplit=-1):
 
-        result = [item.strip() for item in val.split(sep, maxsplit)]
+        if val:
+            result = [item.strip() for item in val.split(sep, maxsplit)]
+        else:
+            result = []
 
         fill = minsplit - len(result)
 

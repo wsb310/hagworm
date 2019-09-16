@@ -9,6 +9,8 @@ from collections import OrderedDict
 from tempfile import TemporaryFile
 from configparser import RawConfigParser
 
+from .base import Utils
+
 
 class Result(dict):
 
@@ -373,29 +375,17 @@ class ConfigParser(RawConfigParser):
 
         return self._split_host(val)
 
-    def _split_str(self, val, sep=r'|'):
-
-        result = tuple(temp.strip() for temp in val.split(sep))
-
-        return result
-
     def get_split_str(self, section, option, sep=r'|', **kwargs):
 
         val = self.get(section, option, **kwargs)
 
-        return self._split_str(val, sep)
-
-    def _split_int(self, val, sep=r','):
-
-        result = tuple(int(temp.strip()) for temp in val.split(sep))
-
-        return result
+        return Utils.split_str(val, sep)
 
     def get_split_int(self, section, option, sep=r',', **kwargs):
 
         val = self.get(section, option, **kwargs)
 
-        return self._split_int(val, sep)
+        return Utils.split_int(val, sep)
 
     def split_float(self, val, sep=r','):
 
