@@ -168,7 +168,7 @@ class Launcher(_LauncherBase):
 
         if status < 400:
             if self._settings[r'debug']:
-                log_method = Utils.log.info
+                log_method = Utils.log.debug
             else:
                 return
         elif status < 500:
