@@ -38,6 +38,11 @@ from cacheout import LRUCache
 
 
 class Utils:
+    """基础工具类
+
+    集成常用的工具函数
+
+    """
 
     _BYTES_TYPES = (bytes, type(None))
 
@@ -816,6 +821,11 @@ class Utils:
 
 
 class Ignore(Exception):
+    """可忽略的异常
+
+    一般用于不方便使用return跳出，或者需要跳出多层逻辑的情况
+
+    """
 
     def __init__(self, msg=None):
 
@@ -825,6 +835,11 @@ class Ignore(Exception):
 
 @contextmanager
 def catch_error():
+    """异常捕获
+
+    通过with语句捕获异常，代码更清晰，还可以使用Ignore异常安全的跳出with代码块
+
+    """
 
     try:
 
@@ -840,6 +855,11 @@ def catch_error():
 
 
 class ContextManager:
+    """上下文资源管理器
+
+    子类通过实现_context_release接口，方便的实现with语句管理上下文资源释放
+
+    """
 
     def __enter__(self):
 
@@ -865,6 +885,11 @@ class ContextManager:
 
 
 class FuncWrapper:
+    """函数包装器
+
+    将多个函数包装成一个可调用对象
+
+    """
 
     def __init__(self):
 
@@ -898,6 +923,11 @@ class FuncWrapper:
 
 
 class StackCache:
+    """堆栈缓存
+
+    使用运行内存作为高速缓存，可有效提高并发的处理能力
+
+    """
 
     def __init__(self, maxsize=0xff, ttl=None):
 

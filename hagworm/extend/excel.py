@@ -9,6 +9,8 @@ from xlwt import Workbook, XFStyle, Borders, Pattern
 
 
 class ExcelWT(Workbook):
+    """Excel生成工具
+    """
 
     def __init__(self, name, encoding=r'utf-8', style_compression=0):
 

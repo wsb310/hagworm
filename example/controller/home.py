@@ -4,7 +4,7 @@ from wtforms import validators, StringField
 from wtforms_tornado import Form
 
 from hagworm.extend.struct import Result
-from hagworm.frame.tornado.web import HttpBasicAuth, MethodWrapper, SocketBaseHandler, RequestBaseHandler, DownloadAgent
+from hagworm.frame.tornado.web import HttpBasicAuth, FormInjection, SocketBaseHandler, RequestBaseHandler, DownloadAgent
 
 from model.base import DataSource, _ModelBase
 
@@ -35,7 +35,7 @@ class Event(RequestBaseHandler):
     class _TestForm(Form):
         event_data = StringField(r'事件数据', [validators.required()])
 
-    @MethodWrapper(_TestForm)
+    @FormInjection(_TestForm)
     async def get(self):
 
         model = _ModelBase()

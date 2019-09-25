@@ -4,6 +4,8 @@ from .base import Utils, FuncWrapper
 
 
 class EventDispatcher:
+    """事件总线
+    """
 
     def __init__(self):
 

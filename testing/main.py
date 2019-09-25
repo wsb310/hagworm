@@ -4,7 +4,7 @@ import os
 import sys
 import pytest
 
-os.chdir(r'./testing')
+os.chdir(os.path.dirname(__file__))
 sys.path.insert(0, os.path.abspath(r'../'))
 
 

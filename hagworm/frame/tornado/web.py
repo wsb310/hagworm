@@ -6,7 +6,7 @@ import functools
 from tornado.web import RequestHandler
 from tornado.websocket import WebSocketHandler
 
-from hagworm.extend.struct import ErrorData, Result
+from hagworm.extend.struct import Result
 from hagworm.extend.asyncio.base import Utils
 from hagworm.extend.asyncio.net import DownloadBuffer
 
@@ -14,6 +14,8 @@ from wtforms_tornado import Form
 
 
 class HttpBasicAuth:
+    """Http基础认证装饰器
+    """
 
     def __init__(self, realm, username, password):
 
@@ -52,7 +54,9 @@ class HttpBasicAuth:
         return _wrapper
 
 
-class MethodWrapper:
+class FormInjection:
+    """表单注入器
+    """
 
     def __init__(self, form_cls=None):
 
@@ -92,6 +96,8 @@ class MethodWrapper:
 
 
 class _BaseHandlerMixin(Utils):
+    """Handler基础工具混入类
+    """
 
     @property
     def request_module(self):
@@ -180,6 +186,8 @@ class _BaseHandlerMixin(Utils):
 
 
 class SocketBaseHandler(WebSocketHandler, _BaseHandlerMixin):
+    """WebSocket请求处理类
+    """
 
     def __init__(self, application, request, **kwargs):
 
@@ -193,6 +201,8 @@ class SocketBaseHandler(WebSocketHandler, _BaseHandlerMixin):
 
 
 class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
+    """Http请求处理类
+    """
 
     def __init__(self, application, request, **kwargs):
 
@@ -383,19 +393,20 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
 
         return result
 
-    def get_arg_json(self, name, default=None, throw_error=False):
+    def get_arg_json(self, name, default=None):
         """
         获取json型输入
         """
-        result = self.get_argument(name, None, True)
 
-        if result is None:
-            result = default
-        else:
+        result = default
+
+        _argument = self.get_argument(name, None, True)
+
+        if result is not None:
             try:
-                result = self.json_decode(result)
+                result = self.json_decode(_argument)
             except BaseException:
-                result = ErrorData(result) if throw_error else default
+                self.log.debug(f'Invalid application/json argument({name}): {_argument}')
 
         return result
 
@@ -442,6 +453,8 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
 
 
 class DownloadAgent(RequestBaseHandler, DownloadBuffer):
+    """文件下载代理类
+    """
 
     def __init__(self, *args, **kwargs):
 
@@ -506,7 +519,7 @@ class DownloadAgent(RequestBaseHandler, DownloadBuffer):
                     f'attachment;filename={file_name}'
                 )
 
-            Utils.ensure_future(self.fetch(url, params=params, cookies=cookies, headers=headers))
+            Utils.create_task(self.fetch(url, params=params, cookies=cookies, headers=headers))
 
             await self._flush_data()
 

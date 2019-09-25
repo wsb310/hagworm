@@ -20,6 +20,8 @@ MYSQL_POLL_WATER_LEVEL_WARNING_LINE = 8
 
 
 class MongoPool:
+    """Mongo连接管理
+    """
 
     def __init__(self, host, username=None, password=None, *, min_pool_size=8, max_pool_size=32, **settings):
 
@@ -48,6 +50,8 @@ class MongoPool:
 
 
 class MongoDelegate:
+    """Mongo功能组件
+    """
 
     def __init__(self, *args, **kwargs):
 
@@ -77,6 +81,8 @@ class MongoDelegate:
 
 
 class MySQLPool:
+    """MySQL连接管理
+    """
 
     class _Connection(SAConnection):
 
@@ -166,6 +172,8 @@ class MySQLPool:
 
 
 class MySQLDelegate:
+    """MySQL功能组件
+    """
 
     def __init__(self):
 
@@ -227,7 +235,7 @@ class MySQLDelegate:
                 _client = self._mysql_rw_context.get()
 
                 if _client is not None:
-                    Utils.ensure_future(_client.release())
+                    Utils.create_task(_client.release())
 
                 client = self._mysql_ro_context.get()
 
@@ -246,7 +254,7 @@ class MySQLDelegate:
                 _client = self._mysql_ro_context.get()
 
                 if _client is not None:
-                    Utils.ensure_future(_client.release())
+                    Utils.create_task(_client.release())
 
                 client = self._mysql_rw_context.get()
 
@@ -261,17 +269,19 @@ class MySQLDelegate:
         _client = self._mysql_rw_context.get()
 
         if _client is not None:
-            Utils.ensure_future(_client.release())
+            Utils.create_task(_client.release())
 
         _client = self._mysql_ro_context.get()
 
         if _client is not None:
-            Utils.ensure_future(_client.release())
+            Utils.create_task(_client.release())
 
         return self._mysql_rw_pool.get_transaction()
 
 
 class _ClientBase:
+    """MySQL客户端基类
+    """
 
     class ReadOnly(Exception):
         pass
@@ -419,6 +429,11 @@ class _ClientBase:
 
 
 class DBClient(_ClientBase, AsyncContextManager):
+    """MySQL客户端对象，使用with进行上下文管理
+
+    将连接委托给客户端对象管理，提高了整体连接的使用率
+
+    """
 
     def __init__(self, pool, readonly):
 
@@ -496,6 +511,11 @@ class DBClient(_ClientBase, AsyncContextManager):
 
 
 class DBTransaction(DBClient):
+    """MySQL客户端事务对象，使用with进行上下文管理
+
+    将连接委托给客户端对象管理，提高了整体连接的使用率
+
+    """
 
     def __init__(self, pool):
 

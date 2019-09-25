@@ -15,6 +15,8 @@ REDIS_POOL_WATER_LEVEL_WARNING_LINE = 8
 
 
 class RedisPool:
+    """Redis连接管理
+    """
 
     def __init__(self, address, password=None, *, minsize=8, maxsize=32, db=0, expire=3600, key_prefix=r'', **settings):
 
@@ -49,6 +51,8 @@ class RedisPool:
 
 
 class RedisDelegate:
+    """Redis功能组件
+    """
 
     def __init__(self):
 
@@ -102,6 +106,11 @@ class RedisDelegate:
 
 
 class MCache(aioredis.Redis, AsyncContextManager):
+    """Redis客户端对象，使用with进行上下文管理
+
+    将连接委托给客户端对象管理，提高了整体连接的使用率
+
+    """
 
     def __init__(self, pool, expire, key_prefix):
 
@@ -302,6 +311,8 @@ class MCache(aioredis.Redis, AsyncContextManager):
 
 
 class MLock(AsyncContextManager):
+    """基于Redis实现的分布式锁，使用with进行上下文管理
+    """
 
     _renew_script = '''
 if redis.call("get",KEYS[1]) == ARGV[1] and redis.call("ttl",KEYS[1]) > 0 then
@@ -340,19 +351,26 @@ end
 
     async def acquire(self, timeout=0):
 
-        params = {
-            r'key': self._lock_tag,
-            r'value': self._lock_val,
-            r'expire': self._expire,
-            r'exist': StringCommandsMixin.SET_IF_NOT_EXIST,
-        }
+        if self._locked:
 
-        async for _ in AsyncCirculator(timeout):
+            await self.renew()
 
-            self._locked = await self._cache._set(**params)
+        else:
 
-            if self._locked or timeout == 0:
-                break
+            params = {
+                r'key': self._lock_tag,
+                r'value': self._lock_val,
+                r'expire': self._expire,
+                r'exist': StringCommandsMixin.SET_IF_NOT_EXIST,
+            }
+
+            async for _ in AsyncCirculator(timeout):
+
+                if await self._cache._set(**params):
+                    self._locked = True
+
+                if self._locked or timeout == 0:
+                    break
 
         return self._locked
 
@@ -371,7 +389,13 @@ end
     async def renew(self):
 
         if self._locked:
-            await self._cache.eval(self._renew_script, [self._lock_tag], [self._lock_val])
+
+            if await self._cache.eval(self._renew_script, [self._lock_tag], [self._lock_val]):
+                self._locked = True
+            else:
+                self._locked = False
+
+        return self._locked
 
     async def release(self):
 
@@ -380,60 +404,12 @@ end
             self._locked = False
 
 
-class MutexLock:
-
-    def __init__(self, cache, key, expire):
-
-        self._cache = cache
-        self._expire = expire
-
-        self._lock_tag = f'mutex_lock_{key}'
-        self._lock_val = Utils.uuid1().encode()
-
-        self._locked = False
-
-    async def acquire(self):
-
-        self._locked = False
-
-        try:
-
-            res = await self._cache._get(self._lock_tag)
-
-            if res:
-
-                if res == self._lock_val:
-                    await self._cache.expire(self._lock_tag, self._expire)
-                    self._locked = True
-                else:
-                    self._locked = False
-
-            else:
-
-                params = {
-                    r'key': self._lock_tag,
-                    r'value': self._lock_val,
-                    r'expire': self._expire,
-                    r'exist': StringCommandsMixin.SET_IF_NOT_EXIST,
-                }
-
-                res = await self._cache._set(**params)
-
-                if res:
-                    self._locked = True
-                else:
-                    self._locked = False
-
-        except Exception as err:
-
-            await self._close_conn(True)
-
-            Utils.log.error(err)
-
-        return self._locked
-
-
 class ShareCache(AsyncContextManager):
+    """共享缓存，使用with进行上下文管理
+
+    基于分布式锁实现的一个缓存共享逻辑，保证在分布式环境下，同一时刻业务逻辑只执行一次，其运行结果会通过缓存被共享
+
+    """
 
     def __init__(self, cache, ckey):
 

@@ -13,6 +13,8 @@ from .base import Utils
 
 
 class Result(dict):
+    """返回结果类
+    """
 
     def __init__(self, code=0, data=None, extra=None):
 
@@ -45,6 +47,8 @@ class Result(dict):
 
 
 class NullData:
+    """NULL类，用于模拟None对象的行为
+    """
 
     def __int__(self):
 
@@ -68,7 +72,7 @@ class NullData:
 
     def __eq__(self, obj):
 
-        return bool(obj) == False
+        return not bool(obj)
 
     def __nonzero__(self):
 
@@ -82,20 +86,9 @@ class NullData:
             return 1
 
 
-class ErrorData(NullData):
-
-    __slots__ = [r'data']
-
-    def __init__(self, data=None):
-
-        self.data = data if isinstance(data, str) else str(data)
-
-    def __repr__(self):
-
-        return self.data
-
-
 class ThreadList(threading.local):
+    """多线程安全的列表
+    """
 
     __slots__ = [r'data']
 
@@ -105,6 +98,8 @@ class ThreadList(threading.local):
 
 
 class ThreadDict(threading.local):
+    """多线程安全的字典
+    """
 
     __slots__ = [r'data']
 
@@ -114,6 +109,8 @@ class ThreadDict(threading.local):
 
 
 class Const(OrderedDict):
+    """常量类
+    """
 
     class _Predefine(NullData):
         pass
@@ -163,6 +160,8 @@ class Const(OrderedDict):
 
 
 class ByteArray(BytesIO):
+    """扩展的BytesIO类
+    """
 
     NETWORK = r'!'
     NATIVE = r'='
@@ -346,6 +345,8 @@ class ByteArray(BytesIO):
 
 
 class ConfigParser(RawConfigParser):
+    """配置解析类
+    """
 
     def getstr(self, section, option, default=None, **kwargs):
 
@@ -401,6 +402,8 @@ class ConfigParser(RawConfigParser):
 
 
 class Configure(Const):
+    """配置类
+    """
 
     def __init__(self):
 
@@ -460,6 +463,8 @@ class Configure(Const):
 
 
 class FileBuffer:
+    """文件缓存类
+    """
 
     def __init__(self, slice_size=0x20000):
 

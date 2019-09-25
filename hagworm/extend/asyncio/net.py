@@ -19,15 +19,17 @@ class _STATE(Enum):
 
 
 class _HTTPClient:
+    """HTTP客户端基类
+    """
+
+    CA_FILE = os.path.join(
+        os.path.split(os.path.abspath(__file__))[0],
+        r'../../static/cacert.pem'
+    )
 
     def __init__(self, retry_count=5, read_timeout=60, conn_timeout=10, **kwargs):
 
-        self._ssl_context = ssl.create_default_context(
-            cafile=os.path.join(
-                os.path.split(os.path.abspath(__file__))[0],
-                r'../../static/cacert.pem'
-            )
-        )
+        self._ssl_context = ssl.create_default_context(cafile=self.CA_FILE)
 
         self._retry_count = retry_count
 
@@ -116,6 +118,8 @@ class _HTTPClient:
 
 
 class _HTTPTextMixin:
+    """Text模式混入类
+    """
 
     async def _handle_response(self, response):
 
@@ -123,6 +127,8 @@ class _HTTPTextMixin:
 
 
 class _HTTPJsonMixin:
+    """Json模式混入类
+    """
 
     async def _handle_response(self, response):
 
@@ -130,6 +136,8 @@ class _HTTPJsonMixin:
 
 
 class _HTTPTouchMixin:
+    """Touch模式混入类，不接收body数据
+    """
 
     async def _handle_response(self, response):
 
@@ -137,6 +145,8 @@ class _HTTPTouchMixin:
 
 
 class HTTPClient(_HTTPClient):
+    """HTTP客户端，普通模式
+    """
 
     async def get(self, url, params=None, *, cookies=None, headers=None):
 
@@ -182,18 +192,26 @@ class HTTPClient(_HTTPClient):
 
 
 class HTTPTextClient(_HTTPTextMixin, HTTPClient):
+    """HTTP客户端，Text模式
+    """
     pass
 
 
 class HTTPJsonClient(_HTTPJsonMixin, HTTPClient):
+    """HTTP客户端，Json模式
+    """
     pass
 
 
 class HTTPTouchClient(_HTTPTouchMixin, HTTPClient):
+    """HTTP客户端，Touch模式
+    """
     pass
 
 
 class HTTPClientPool(HTTPClient):
+    """HTTP带连接池客户端，普通模式
+    """
 
     def __init__(self, retry_count=5, use_dns_cache=True, ttl_dns_cache=10, limit=100, limit_per_host=0, read_timeout=60, conn_timeout=10, **kwargs):
 
@@ -217,18 +235,26 @@ class HTTPClientPool(HTTPClient):
 
 
 class HTTPTextClientPool(_HTTPTextMixin, HTTPClientPool):
+    """HTTP带连接池客户端，Text模式
+    """
     pass
 
 
 class HTTPJsonClientPool(_HTTPJsonMixin, HTTPClientPool):
+    """HTTP带连接池客户端，Json模式
+    """
     pass
 
 
 class HTTPTouchClientPool(_HTTPTouchMixin, HTTPClientPool):
+    """HTTP带连接池客户端，Touch模式
+    """
     pass
 
 
 class Downloader(_HTTPClient):
+    """HTTP文件下载器
+    """
 
     def __init__(self, file, retry_count=5, read_timeout=65535, conn_timeout=60, **kwargs):
 
@@ -291,6 +317,8 @@ class Downloader(_HTTPClient):
 
 
 class DownloadBuffer(Downloader):
+    """HTTP文件下载器(临时文件版)
+    """
 
     def __init__(self, read_timeout=65535, conn_timeout=10, **kwargs):
 

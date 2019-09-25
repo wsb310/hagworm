@@ -10,7 +10,9 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 
 
-class RsaUtil():
+class RsaUtil:
+    """Rsa加解密相关工具类
+    """
 
     @classmethod
     def gen_rsa_key(cls, rsa_key, private=False):

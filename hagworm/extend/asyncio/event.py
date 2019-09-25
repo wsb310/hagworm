@@ -7,6 +7,8 @@ from hagworm.extend.asyncio.base import Utils, AsyncCirculator, AsyncFuncWrapper
 
 
 class DistributedEvent(EventDispatcher):
+    """Redis实现的消息广播总线
+    """
 
     def __init__(self, redis_pool, channel_name, channel_count):
 
@@ -17,7 +19,7 @@ class DistributedEvent(EventDispatcher):
         self._channels = [f'event_bus_{Utils.md5_u32(channel_name)}_{channel}' for channel in range(channel_count)]
 
         for channel in self._channels:
-            Utils.ensure_future(self._event_listener(channel))
+            Utils.create_task(self._event_listener(channel))
 
     async def _event_listener(self, channel):
 
@@ -72,6 +74,8 @@ class DistributedEvent(EventDispatcher):
 
 
 class EventWaiter(FutureWithTimeout):
+    """带超时的临时消息接收器
+    """
 
     def __init__(self, dispatcher, event_type, delay_time):
 

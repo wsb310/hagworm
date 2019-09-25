@@ -14,6 +14,8 @@ from hagworm.frame.tornado.base import _LauncherBase
 
 
 class _TCPServer(TCPServer):
+    """TCPServer实现类
+    """
 
     def __init__(self, protocol, *args, **kwargs):
 
@@ -38,6 +40,8 @@ class _TCPServer(TCPServer):
 
 
 class Protocol:
+    """Protocol实现类
+    """
 
     def __init__(self, stream, address):
 
@@ -117,6 +121,11 @@ class Protocol:
 
 
 class Launcher(_LauncherBase):
+    """TornadoTCP的启动器
+
+    用于简化和统一程序的启动操作
+
+    """
 
     def __init__(self, protocol, port, **kwargs):
 
@@ -139,6 +148,7 @@ class Launcher(_LauncherBase):
         AsyncIOMainLoop().install()
 
         self._event_loop = asyncio.get_event_loop()
+        self._event_loop.set_debug(kwargs.get(r'debug', False))
 
         self._server = _TCPServer(protocol, **self._settings)
 

@@ -20,6 +20,8 @@ from hagworm.extend.interface import TaskInterface
 
 
 class _InterceptHandler(logging.Handler):
+    """日志监听器
+    """
 
     def emit(self, record):
 
@@ -33,6 +35,8 @@ class _InterceptHandler(logging.Handler):
 
 
 class _LauncherBase(TaskInterface):
+    """启动器基类
+    """
 
     def _initialize(self, **kwargs):
 
@@ -118,6 +122,11 @@ class _LauncherBase(TaskInterface):
 
 
 class Launcher(_LauncherBase):
+    """TornadoHttp的启动器
+
+    用于简化和统一程序的启动操作
+
+    """
 
     def __init__(self, router, port=80, **kwargs):
 
@@ -153,6 +162,7 @@ class Launcher(_LauncherBase):
         AsyncIOMainLoop().install()
 
         self._event_loop = asyncio.get_event_loop()
+        self._event_loop.set_debug(self._settings[r'debug'])
 
         self._server = HTTPServer(Application(**self._settings))
 

@@ -10,6 +10,8 @@ from .base import Utils
 
 
 class _BaseTask(TaskInterface):
+    """异步任务基类
+    """
 
     @classmethod
     def create(cls, promptly, _callable, *args, **kwargs):
@@ -93,6 +95,8 @@ class _BaseTask(TaskInterface):
 
 
 class LoopTask(_BaseTask):
+    """循环任务类
+    """
 
     @classmethod
     def create(cls, limit_time, promptly, _callable, *args, **kwargs):
@@ -126,6 +130,8 @@ class LoopTask(_BaseTask):
 
 
 class IntervalTask(_BaseTask):
+    """间隔任务类
+    """
 
     @classmethod
     def create(cls, interval, promptly, _callable, *args, **kwargs):
@@ -153,6 +159,8 @@ class IntervalTask(_BaseTask):
 
 
 class CronTask(_BaseTask, CronTab):
+    """定时任务类
+    """
 
     @classmethod
     def create(cls, crontab, promptly, _callable, *args, **kwargs):

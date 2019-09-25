@@ -12,6 +12,11 @@ from hagworm.extend import base
 
 
 class Launcher:
+    """异步版本的启动器
+
+    用于简化和统一程序的启动操作
+
+    """
 
     def __init__(self, log_file_path=None, log_level=r'INFO', log_file_num_backups=7, debug=False):
 
@@ -36,26 +41,19 @@ class Launcher:
             Utils.log.level(log_level)
 
         self._event_loop = asyncio.get_event_loop()
+        self._event_loop.set_debug(debug)
 
     def run(self, future):
 
         self._event_loop.run_until_complete(future)
 
 
-def async_adapter(func):
-
-    @functools.wraps(func)
-    def _wrapper(*args, **kwargs):
-
-        future = func(*args, **kwargs)
-
-        if Utils.isawaitable(future):
-            asyncio.ensure_future(future)
-
-    return _wrapper
-
-
 class Utils(base.Utils):
+    """异步基础工具类
+
+    集成常用的异步工具函数
+
+    """
 
     sleep = staticmethod(asyncio.sleep)
     isawaitable = staticmethod(inspect.isawaitable)
@@ -63,12 +61,16 @@ class Utils(base.Utils):
     @staticmethod
     @types.coroutine
     def wait_frame(count=10):
+        """暂停指定帧数
+        """
 
         for _ in range(max(1, count)):
             yield
 
     @staticmethod
     def loop_time():
+        """获取当前loop内部时钟
+        """
 
         loop = asyncio.events.get_event_loop()
 
@@ -76,6 +78,8 @@ class Utils(base.Utils):
 
     @classmethod
     def call_soon(cls, callback, *args, **kwargs):
+        """延时调用(能隔离上下文)
+        """
 
         loop = asyncio.events.get_event_loop()
 
@@ -102,6 +106,8 @@ class Utils(base.Utils):
 
     @classmethod
     def call_soon_threadsafe(cls, callback, *args, **kwargs):
+        """延时调用(线程安全，能隔离上下文)
+        """
 
         loop = asyncio.events.get_event_loop()
 
@@ -128,6 +134,8 @@ class Utils(base.Utils):
 
     @classmethod
     def call_later(cls, delay, callback, *args, **kwargs):
+        """延时指定秒数调用(能隔离上下文)
+        """
 
         loop = asyncio.events.get_event_loop()
 
@@ -156,6 +164,8 @@ class Utils(base.Utils):
 
     @classmethod
     def call_at(cls, when, callback, *args, **kwargs):
+        """指定时间调用(能隔离上下文)
+        """
 
         loop = asyncio.events.get_event_loop()
 
@@ -183,19 +193,45 @@ class Utils(base.Utils):
             )
 
     @staticmethod
-    def ensure_future(future):
+    def create_task(coro):
+        """将协程对象包装成task对象(兼容Future接口)
+        """
 
-        return asyncio.ensure_future(future)
+        if asyncio.iscoroutine(coro):
+            return asyncio.create_task(coro)
+        else:
+            return None
 
     @staticmethod
     def run_until_complete(future):
+        """将协程对象包装成task对象(兼容Future接口)
+        """
 
         loop = asyncio.events.get_event_loop()
 
         return loop.run_until_complete(future)
 
 
+def async_adapter(func):
+    """异步函数适配装饰器
+
+    使异步函数可以在同步函数中调用，即非阻塞式的启动异步函数，同时会影响上下文资源的生命周期
+
+    """
+
+    @functools.wraps(func)
+    def _wrapper(*args, **kwargs):
+
+        return Utils.create_task(
+            func(*args, **kwargs)
+        )
+
+    return _wrapper
+
+
 class WeakContextVar:
+    """弱引用版的上下文资源共享器
+    """
 
     _instances = {}
 
@@ -224,6 +260,8 @@ class WeakContextVar:
 
 
 class FutureWithTimeout(asyncio.Future):
+    """带超时功能的Future
+    """
 
     def __init__(self, delay):
 
@@ -245,6 +283,21 @@ class FutureWithTimeout(asyncio.Future):
 
 
 class MultiTasks:
+    """多任务并发管理器
+
+    提供协程的多任务并发的解决方案
+
+    tasks = MultiTasks()
+    tasks.append(func1())
+    tasks.append(func2())
+    ...
+    tasks.append(funcN())
+    await tasks
+
+    多任务中禁止使用上下文资源共享的对象(如mysql和redis等)
+    同时需要注意类似这种不能同时为多个协程提供服务的对象会造成不可预期的问题
+
+    """
 
     def __init__(self, *args):
 
@@ -270,13 +323,13 @@ class MultiTasks:
 
         return self._tasks.__getitem__(item).result()
 
-    def append(self, future):
+    def append(self, coro):
 
-        return self._tasks.append(asyncio.ensure_future(future))
+        return self._tasks.append(Utils.create_task(coro))
 
-    def extend(self, futures):
+    def extend(self, coro_list):
 
-        return self._tasks.extend(asyncio.ensure_future(future) for future in futures)
+        return self._tasks.extend(Utils.create_task(coro) for coro in coro_list)
 
     def clear(self):
 
@@ -284,6 +337,16 @@ class MultiTasks:
 
 
 class AsyncCirculator:
+    """异步循环器
+
+    提供一个循环体内的代码重复执行管理逻辑，可控制执行间隔和超时时间
+
+    for index in AsyncCirculator():
+        pass
+
+    其中index为执行次数，从1开始
+
+    """
 
     def __init__(self, timeout=0, interval=10):
 
@@ -315,6 +378,11 @@ class AsyncCirculator:
 
 
 class AsyncContextManager:
+    """异步上下文资源管理器
+
+    子类通过实现_context_release接口，方便的实现with语句管理上下文资源释放
+
+    """
 
     async def __aenter__(self):
 
@@ -340,14 +408,29 @@ class AsyncContextManager:
 
 
 class AsyncFuncWrapper(base.FuncWrapper):
+    """异步函数包装器
+
+    将多个同步或异步函数包装成一个可调用对象
+
+    """
 
     async def __call__(self, *args, **kwargs):
 
         for func in self._callables:
-            Utils.call_soon(func, *args, **kwargs)
+
+            future = func(*args, **kwargs)
+
+            if Utils.isawaitable(future):
+                await future
 
 
 class Transaction(AsyncContextManager):
+    """事务对象
+
+    使用异步上下文实现的一个事务对象，可以设置commit和rollback回调
+    未显示commit的情况下，会自动rollback
+
+    """
 
     def __init__(self):
 
@@ -406,6 +489,11 @@ class Transaction(AsyncContextManager):
 
 
 class FuncCache:
+    """函数缓存
+
+    使用堆栈缓存实现的函数缓存，在有效期内函数签名一致就会命中缓存
+
+    """
 
     def __init__(self, maxsize=0xff, ttl=10):
 
@@ -432,6 +520,11 @@ class FuncCache:
 
 
 class ShareFuture:
+    """共享Future装饰器
+
+    同一时刻并发调用函数时，使用该装饰器的函数签名一致的调用，会共享计算结果
+
+    """
 
     def __init__(self):
 
@@ -454,10 +547,12 @@ class ShareFuture:
 
             else:
 
-                future = func(*args, **kwargs)
+                future = Utils.create_task(
+                    func(*args, **kwargs)
+                )
 
-                if not Utils.isawaitable(future):
-                    TypeError(r'Need awaitable object')
+                if future is None:
+                    TypeError(r'Not Coroutine Object')
 
                 self._future[func_sign] = [future]
 
