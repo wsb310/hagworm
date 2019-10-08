@@ -2,7 +2,7 @@
 
 import setuptools
 
-with open(r'README.md', r'r') as stream:
+with open(r'README.md', r'r', encoding="utf8") as stream:
     long_description = stream.read()
 
 setuptools.setup(
