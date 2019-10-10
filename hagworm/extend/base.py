@@ -823,7 +823,7 @@ class Utils:
 class Ignore(Exception):
     """可忽略的异常
 
-    一般用于不方便使用return跳出，或者需要跳出多层逻辑的情况
+    用于with语句块跳出，或者需要跳出多层逻辑的情况
 
     """
 

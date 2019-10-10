@@ -77,10 +77,9 @@ class FormInjection:
 
             if form.validate():
 
-                resp = func(handler, *args, **kwargs)
-
-                if Utils.isawaitable(resp):
-                    resp = await resp
+                resp = await Utils.awaitable_wrapper(
+                    func(handler, *args, **kwargs)
+                )
 
                 if isinstance(resp, Result):
                     return handler.write_json(resp)

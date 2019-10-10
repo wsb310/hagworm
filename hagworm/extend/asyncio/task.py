@@ -69,10 +69,9 @@ class _BaseTask(TaskInterface):
 
         try:
 
-            resp = self._callable()
-
-            if Utils.isawaitable(resp):
-                await resp
+            await Utils.awaitable_wrapper(
+                self._callable()
+            )
 
         except Exception as err:
 

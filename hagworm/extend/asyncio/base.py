@@ -56,7 +56,16 @@ class Utils(base.Utils):
     """
 
     sleep = staticmethod(asyncio.sleep)
-    isawaitable = staticmethod(inspect.isawaitable)
+
+    @staticmethod
+    async def awaitable_wrapper(obj):
+        """自适应awaitable对象
+        """
+
+        if inspect.isawaitable(obj):
+            return await obj
+        else:
+            return obj
 
     @staticmethod
     @types.coroutine
@@ -301,39 +310,129 @@ class MultiTasks:
 
     def __init__(self, *args):
 
-        self._tasks = list(args)
+        self._coro_list = list(args)
+        self._task_list = []
 
     def __await__(self):
 
-        if len(self._tasks) > 0:
-            yield from asyncio.gather(*self._tasks).__await__()
+        if len(self._coro_list) > 0:
+            self._task_list = [Utils.create_task(coro) for coro in self._coro_list]
+            self._coro_list.clear()
+            yield from asyncio.gather(*self._task_list).__await__()
 
-        return self
+        return [task.result() for task in self._task_list]
 
     def __len__(self):
 
-        return self._tasks.__len__()
+        return self._coro_list.__len__()
 
     def __iter__(self):
 
-        for task in self._tasks:
+        for task in self._task_list:
             yield task.result()
 
     def __getitem__(self, item):
 
-        return self._tasks.__getitem__(item).result()
+        return self._task_list.__getitem__(item).result()
 
     def append(self, coro):
 
-        return self._tasks.append(Utils.create_task(coro))
+        return self._coro_list.append(coro)
 
     def extend(self, coro_list):
 
-        return self._tasks.extend(Utils.create_task(coro) for coro in coro_list)
+        return self._coro_list.extend(coro_list)
 
     def clear(self):
 
-        return self._tasks.clear()
+        self._coro_list.clear()
+        self._task_list.clear()
+
+
+class SliceTasks(MultiTasks):
+    """多任务分片并发管理器
+
+    继承自MultiTasks类，通过参数slice_num控制并发分片任务数
+
+    """
+
+    def __init__(self, slice_num, *args):
+
+        super().__init__(*args)
+
+        self._slice_num = max(1, slice_num)
+
+    def __await__(self):
+
+        if len(self._coro_list) > 0:
+
+            for _ in range(Utils.math.ceil(len(self._coro_list) / self._slice_num)):
+
+                tasks = []
+
+                for _ in range(self._slice_num):
+                    if len(self._coro_list) > 0:
+                        tasks.append(Utils.create_task(self._coro_list.pop(0)))
+
+                if len(tasks) > 0:
+                    self._task_list.extend(tasks)
+                    yield from asyncio.gather(*tasks).__await__()
+
+        return [task.result() for task in self._task_list]
+
+
+class QueueTasks(MultiTasks):
+    """多任务队列管理器
+
+    继承自MultiTasks类，通过参数queue_num控制队列长度
+
+    """
+
+    def __init__(self, queue_num, *args):
+
+        super().__init__(*args)
+
+        self._queue_num = max(1, queue_num)
+
+        self._queue_future = None
+
+    def __await__(self):
+
+        if len(self._coro_list) > 0:
+
+            self._queue_future = asyncio.Future()
+
+            tasks = []
+
+            for _ in range(self._queue_num):
+
+                if len(self._coro_list) > 0:
+
+                    task = Utils.create_task(self._coro_list.pop(0))
+                    task.add_done_callback(self._done_callback)
+
+                    tasks.append(task)
+
+            if len(tasks) > 0:
+                self._task_list.extend(tasks)
+
+            yield from self._queue_future.__await__()
+
+        return [task.result() for task in self._task_list]
+
+    def _done_callback(self, _):
+
+        if len(self._coro_list) > 0:
+
+            task = Utils.create_task(self._coro_list.pop(0))
+            task.add_done_callback(self._done_callback)
+
+            self._task_list.append(task)
+
+        elif self._queue_future is not None and not self._queue_future.done():
+
+            if all(task.done() for task in self._task_list):
+                self._queue_future.set_result(True)
 
 
 class AsyncCirculator:
@@ -351,7 +450,7 @@ class AsyncCirculator:
     def __init__(self, timeout=0, interval=10):
 
         if timeout > 0:
-            self._expire_time = Utils.timestamp() + timeout
+            self._expire_time = Utils.loop_time() + timeout
         else:
             self._expire_time = 0
 
@@ -367,7 +466,7 @@ class AsyncCirculator:
 
         if self._current > 0:
 
-            if self._expire_time > 0 and self._expire_time < Utils.timestamp():
+            if self._expire_time > 0 and self._expire_time < Utils.loop_time():
                 raise StopAsyncIteration()
 
             await Utils.wait_frame(self._interval)
@@ -418,10 +517,9 @@ class AsyncFuncWrapper(base.FuncWrapper):
 
         for func in self._callables:
 
-            future = func(*args, **kwargs)
-
-            if Utils.isawaitable(future):
-                await future
+            await Utils.awaitable_wrapper(
+                func(*args, **kwargs)
+            )
 
 
 class Transaction(AsyncContextManager):
@@ -465,11 +563,9 @@ class Transaction(AsyncContextManager):
         self._commit_callbacks = self._rollback_callbacks = None
 
         for _callable in callbacks:
-
-            _res = _callable()
-
-            if Utils.isawaitable(_res):
-                await _res
+            await Utils.awaitable_wrapper(
+                _callable()
+            )
 
     async def rollback(self):
 
@@ -481,11 +577,9 @@ class Transaction(AsyncContextManager):
         self._commit_callbacks = self._rollback_callbacks = None
 
         for _callable in callbacks:
-
-            _res = _callable()
-
-            if Utils.isawaitable(_res):
-                await _res
+            await Utils.awaitable_wrapper(
+                _callable()
+            )
 
 
 class FuncCache:
@@ -510,7 +604,9 @@ class FuncCache:
 
             if result is None:
 
-                result = await func(*args, **kwargs)
+                result = await Utils.awaitable_wrapper(
+                    func(*args, **kwargs)
+                )
 
                 self._cache.set(func_sign, result)
 
