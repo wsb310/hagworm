@@ -21,8 +21,8 @@ def main():
         ConfigStatic.read(r'./static.conf')
         ConfigDynamic.read(r'./dynamic.conf')
     else:
-        ConfigStatic.read(r'./static.{0}.conf'.format(cluster.lower()))
-        ConfigDynamic.read(r'./dynamic.{0}.conf'.format(cluster.lower()))
+        ConfigStatic.read(f'./static.{cluster.lower()}.conf')
+        ConfigDynamic.read(f'./dynamic.{cluster.lower()}.conf')
 
     Launcher(
         router,

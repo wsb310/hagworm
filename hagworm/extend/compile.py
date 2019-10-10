@@ -8,6 +8,8 @@ import py_compile
 
 
 def compile(file_path, cfile_path=None):
+    """PYC编译函数
+    """
 
     for root, _, files in os.walk(file_path):
 
@@ -51,11 +53,11 @@ def main():
     try:
         compile(args.input, args.output)
     except Exception as error:
-        rv = 1
-        sys.stderr.write(r'%s\n' % error)
+        sys.stderr.write(f'{error}\n')
 
     return result
 
 
-if __name__ == "__main__":
+if __name__ == r'__main__':
+
     sys.exit(main())

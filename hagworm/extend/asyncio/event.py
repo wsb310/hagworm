@@ -7,6 +7,8 @@ from hagworm.extend.asyncio.base import Utils, AsyncCirculator, AsyncFuncWrapper
 
 
 class DistributedEvent(EventDispatcher):
+    """Redis实现的消息广播总线
+    """
 
     def __init__(self, redis_pool, channel_name, channel_count):
 
@@ -14,16 +16,10 @@ class DistributedEvent(EventDispatcher):
 
         self._redis_pool = redis_pool
 
-        self._channels = [
-            r'event_bus_{0}_{1}'.format(
-                Utils.md5_u32(channel_name),
-                channel
-            )
-            for channel in range(channel_count)
-        ]
+        self._channels = [f'event_bus_{Utils.md5_u32(channel_name)}_{channel}' for channel in range(channel_count)]
 
         for channel in self._channels:
-            Utils.ensure_future(self._event_listener(channel))
+            Utils.create_task(self._event_listener(channel))
 
     async def _event_listener(self, channel):
 
@@ -44,7 +40,7 @@ class DistributedEvent(EventDispatcher):
 
         message = Utils.pickle_loads(message)
 
-        Utils.log.debug(r'event handling => channel({0}) message({1})'.format(channel.name.decode(), message))
+        Utils.log.debug(f'event handling => channel({channel.name.decode()}) message({message})')
 
         _type = message.get(r'type', r'')
         args = message.get(r'args', [])
@@ -67,7 +63,7 @@ class DistributedEvent(EventDispatcher):
             r'kwargs': kwargs,
         }
 
-        Utils.log.debug(r'event dispatch => channel({0}) message({1})'.format(channel, message))
+        Utils.log.debug(f'event dispatch => channel({channel}) message({message})')
 
         async with self._redis_pool.get_client() as cache:
             await cache.publish(channel, Utils.pickle_dumps(message))
@@ -78,6 +74,8 @@ class DistributedEvent(EventDispatcher):
 
 
 class EventWaiter(FutureWithTimeout):
+    """带超时的临时消息接收器
+    """
 
     def __init__(self, dispatcher, event_type, delay_time):
 

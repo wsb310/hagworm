@@ -2,6 +2,8 @@
 
 
 class TaskInterface:
+    """Task接口定义
+    """
 
     def start(self):
         raise NotImplementedError()

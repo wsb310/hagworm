@@ -11,6 +11,8 @@ from .base import Utils
 
 
 class ThreadPool:
+    """线程池，桥接线程与协程
+    """
 
     def __init__(self, max_workers):
 
@@ -26,6 +28,8 @@ class ThreadPool:
 
 
 class ThreadWorker:
+    """通过线程转协程实现普通函数非阻塞的装饰器
+    """
 
     def __init__(self, max_workers):
 
@@ -41,6 +45,8 @@ class ThreadWorker:
 
 
 class ProcessPool:
+    """进程池，桥接进程与协程
+    """
 
     def __init__(self, max_workers):
 
@@ -56,6 +62,8 @@ class ProcessPool:
 
 
 class ProcessWorker:
+    """通过进程转协程实现普通函数非阻塞的装饰器
+    """
 
     def __init__(self, max_workers):
 
@@ -71,6 +79,8 @@ class ProcessWorker:
 
 
 class SubProcess(TaskInterface):
+    """子进程管理，通过command方式启动子进程
+    """
 
     @classmethod
     def create(cls, cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE):

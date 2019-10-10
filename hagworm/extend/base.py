@@ -38,6 +38,11 @@ from cacheout import LRUCache
 
 
 class Utils:
+    """基础工具类
+
+    集成常用的工具函数
+
+    """
 
     _BYTES_TYPES = (bytes, type(None))
 
@@ -179,8 +184,7 @@ class Utils:
     @classmethod
     def split_int(cls, val, sep=r',', minsplit=0, maxsplit=-1):
 
-        result = [int(item.strip()) for item in val.split(
-            sep, maxsplit) if item.strip().isdigit()]
+        result = [int(item.strip()) for item in val.split(sep, maxsplit) if item.strip().isdigit()]
 
         fill = minsplit - len(result)
 
@@ -214,7 +218,10 @@ class Utils:
     @classmethod
     def split_str(cls, val, sep=r'|', minsplit=0, maxsplit=-1):
 
-        result = [item.strip() for item in val.split(sep, maxsplit)]
+        if val:
+            result = [item.strip() for item in val.split(sep, maxsplit)]
+        else:
+            result = []
 
         fill = minsplit - len(result)
 
@@ -282,21 +289,21 @@ class Utils:
         return True if result else False
 
     @classmethod
-    def randhit(cls, iterable, probs):
+    def randhit(cls, iterable, prob):
 
-        if not cls.is_iterable(probs):
-            probs = [probs(val) for val in iterable]
+        if callable(prob):
+            prob = [prob(val) for val in iterable]
 
-        prob_sum = sum(probs)
+        prob_sum = sum(prob)
 
         if prob_sum > 0:
 
             prob_hit = 0
             prob_sum = cls.randint(0, prob_sum)
 
-            for index in range(0, len(probs)):
+            for index in range(0, len(prob)):
 
-                prob_hit += probs[index]
+                prob_hit += prob[index]
 
                 if prob_hit >= prob_sum:
                     return iterable[index]
@@ -352,7 +359,7 @@ class Utils:
 
         while num > 0:
             num, rem = divmod(num, 24)
-            result = r'{0}{1}'.format(base[rem], result)
+            result = base[rem] + result
 
         return result
 
@@ -370,7 +377,7 @@ class Utils:
 
         while num > 0:
             num, rem = divmod(num, 36)
-            result = r'{0}{1}'.format(base[rem], result)
+            result = base[rem] + result
 
         return r'{0:0>{1:d}s}'.format(result, align)
 
@@ -388,7 +395,7 @@ class Utils:
 
         while num > 0:
             num, rem = divmod(num, 62)
-            result = r'{0}{1}'.format(base[rem], result)
+            result = base[rem] + result
 
         return r'{0:0>{1:d}s}'.format(result, align)
 
@@ -662,7 +669,7 @@ class Utils:
             if check_sum > 0:
                 check_sum = 10 - check_sum
 
-            result = r'{0:s}{1:d}'.format(val, check_sum)
+            result = val + str(check_sum)
 
         return result
 
@@ -695,7 +702,7 @@ class Utils:
             params = {key: val for key,
                       val in params.items() if key not in filters}
 
-        return r'&'.join(r'{0}={1}'.format(key, val) for key, val in sorted(params.items(), key=lambda x: x[0]))
+        return r'&'.join(f'{key}={val}' for key, val in sorted(params.items(), key=lambda x: x[0]))
 
     @classmethod
     def params_sign(cls, *args, **kwargs):
@@ -814,6 +821,11 @@ class Utils:
 
 
 class Ignore(Exception):
+    """可忽略的异常
+
+    用于with语句块跳出，或者需要跳出多层逻辑的情况
+
+    """
 
     def __init__(self, msg=None):
 
@@ -823,6 +835,11 @@ class Ignore(Exception):
 
 @contextmanager
 def catch_error():
+    """异常捕获
+
+    通过with语句捕获异常，代码更清晰，还可以使用Ignore异常安全的跳出with代码块
+
+    """
 
     try:
 
@@ -838,6 +855,11 @@ def catch_error():
 
 
 class ContextManager:
+    """上下文资源管理器
+
+    子类通过实现_context_release接口，方便的实现with语句管理上下文资源释放
+
+    """
 
     def __enter__(self):
 
@@ -863,6 +885,11 @@ class ContextManager:
 
 
 class FuncWrapper:
+    """函数包装器
+
+    将多个函数包装成一个可调用对象
+
+    """
 
     def __init__(self):
 
@@ -896,6 +923,11 @@ class FuncWrapper:
 
 
 class StackCache:
+    """堆栈缓存
+
+    使用运行内存作为高速缓存，可有效提高并发的处理能力
+
+    """
 
     def __init__(self, maxsize=0xff, ttl=None):
 

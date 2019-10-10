@@ -5,6 +5,8 @@ import traceback
 
 
 class SingletonMetaclass(type):
+    """单例的元类实现
+    """
 
     def __init__(cls, name, bases, attrs):
 
@@ -35,10 +37,17 @@ class SingletonMetaclass(type):
 
 
 class Singleton(metaclass=SingletonMetaclass):
+    """单例装饰器
+    """
     pass
 
 
 class SubclassMetaclass(type):
+    """子类清单
+
+    该元类的类，能感知自身被继承，并提供子类清单
+
+    """
 
     _baseclasses = []
 

@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from hagworm.extend.asyncio.base import MultiTasks
-from hagworm.frame.tornado.web import HttpBasicAuth, SocketBaseHandler, RequestBaseHandler, DownloadAgent
+from wtforms import validators, StringField
+from wtforms_tornado import Form
+
+from hagworm.extend.struct import Result
+from hagworm.frame.tornado.web import HttpBasicAuth, FormInjection, SocketBaseHandler, RequestBaseHandler, DownloadAgent
 
 from model.base import DataSource, _ModelBase
 
@@ -10,21 +13,11 @@ class Default(RequestBaseHandler):
 
     async def get(self):
 
-        data_source = DataSource()
-
-        tasks = MultiTasks()
-
-        tasks.append(data_source.cache_health())
-        tasks.append(data_source.mysql_health())
-        tasks.append(data_source.mongo_health())
-
-        await tasks
+        result = await DataSource().health()
 
         return self.render(
             r'home/default.html',
-            cache_health=tasks[0],
-            mysql_health=tasks[1],
-            mongo_health=tasks[2]
+            health=result
         )
 
 
@@ -36,30 +29,37 @@ class Download(DownloadAgent):
         await self.transmit(r'https://www.baidu.com/img/bd_logo.png')
 
 
+
 class Event(RequestBaseHandler):
 
+    class _TestForm(Form):
+        event_data = StringField(r'事件数据', [validators.required()])
+
+    @FormInjection(_TestForm)
     async def get(self):
 
         model = _ModelBase()
 
-        await model.dispatch_event(r'test')
+        await model.dispatch_event(self.data[r'event_data'])
+
+        return Result()
 
 
 class Socket(SocketBaseHandler):
 
     async def open(self, channel):
 
-        self.log.debug(r'WebSocket opened: {0}'.format(channel))
+        self.log.debug(f'WebSocket opened: {channel}')
 
     async def on_message(self, message):
 
         self.write_message(message)
 
-        self.log.debug(r'WebSocket message: {0}'.format(message))
+        self.log.debug(f'WebSocket message: {message}')
 
     async def on_ping(self, data):
 
-        self.log.debug(r'WebSocket ping: {0}'.format(data))
+        self.log.debug(f'WebSocket ping: {data}')
 
     async def on_close(self):
 

@@ -20,6 +20,8 @@ MYSQL_POLL_WATER_LEVEL_WARNING_LINE = 8
 
 
 class MongoPool:
+    """Mongo连接管理
+    """
 
     def __init__(self, host, username=None, password=None, *, min_pool_size=8, max_pool_size=32, **settings):
 
@@ -33,9 +35,7 @@ class MongoPool:
 
         self._pool = AsyncIOMotorClient(**settings)
 
-        Utils.log.info(
-            r'Mongo {0} initialized'.format(host)
-        )
+        Utils.log.info(f'MongoDB {host} initialized')
 
     def get_database(self, db_name):
 
@@ -50,6 +50,8 @@ class MongoPool:
 
 
 class MongoDelegate:
+    """Mongo功能组件
+    """
 
     def __init__(self, *args, **kwargs):
 
@@ -79,6 +81,8 @@ class MongoDelegate:
 
 
 class MySQLPool:
+    """MySQL连接管理
+    """
 
     class _Connection(SAConnection):
 
@@ -136,7 +140,9 @@ class MySQLPool:
         global MYSQL_POLL_WATER_LEVEL_WARNING_LINE
 
         if self._pool.freesize < MYSQL_POLL_WATER_LEVEL_WARNING_LINE:
-            Utils.log.warning(r'MySQL connection pool not enough: {0}({1}/{2})'.format(self._pool.freesize, self._pool.size, self._pool.maxsize))
+            Utils.log.warning(
+                f'MySQL connection pool not enough: {self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+            )
 
         conn = await self._pool.acquire()
 
@@ -166,6 +172,8 @@ class MySQLPool:
 
 
 class MySQLDelegate:
+    """MySQL功能组件
+    """
 
     def __init__(self):
 
@@ -174,8 +182,8 @@ class MySQLDelegate:
 
         context_uuid = Utils.uuid1()
 
-        self._mysql_rw_context = WeakContextVar(r'mysql_rw_client_{0}'.format(context_uuid))
-        self._mysql_ro_context = WeakContextVar(r'mysql_ro_client_{0}'.format(context_uuid))
+        self._mysql_rw_context = WeakContextVar(f'mysql_rw_client_{context_uuid}')
+        self._mysql_ro_context = WeakContextVar(f'mysql_ro_client_{context_uuid}')
 
     async def async_init_mysql_rw(self, *args, **kwargs):
 
@@ -227,7 +235,7 @@ class MySQLDelegate:
                 _client = self._mysql_rw_context.get()
 
                 if _client is not None:
-                    Utils.ensure_future(_client.release())
+                    Utils.create_task(_client.release())
 
                 client = self._mysql_ro_context.get()
 
@@ -246,7 +254,7 @@ class MySQLDelegate:
                 _client = self._mysql_ro_context.get()
 
                 if _client is not None:
-                    Utils.ensure_future(_client.release())
+                    Utils.create_task(_client.release())
 
                 client = self._mysql_rw_context.get()
 
@@ -261,17 +269,19 @@ class MySQLDelegate:
         _client = self._mysql_rw_context.get()
 
         if _client is not None:
-            Utils.ensure_future(_client.release())
+            Utils.create_task(_client.release())
 
         _client = self._mysql_ro_context.get()
 
         if _client is not None:
-            Utils.ensure_future(_client.release())
+            Utils.create_task(_client.release())
 
         return self._mysql_rw_pool.get_transaction()
 
 
 class _ClientBase:
+    """MySQL客户端基类
+    """
 
     class ReadOnly(Exception):
         pass
@@ -419,6 +429,11 @@ class _ClientBase:
 
 
 class DBClient(_ClientBase, AsyncContextManager):
+    """MySQL客户端对象，使用with进行上下文管理
+
+    将连接委托给客户端对象管理，提高了整体连接的使用率
+
+    """
 
     def __init__(self, pool, readonly):
 
@@ -496,6 +511,11 @@ class DBClient(_ClientBase, AsyncContextManager):
 
 
 class DBTransaction(DBClient):
+    """MySQL客户端事务对象，使用with进行上下文管理
+
+    将连接委托给客户端对象管理，提高了整体连接的使用率
+
+    """
 
     def __init__(self, pool):
 

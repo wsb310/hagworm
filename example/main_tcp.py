@@ -17,11 +17,11 @@ class EchoProtocol(Protocol):
 
     async def connection_made(self):
 
-        Utils.log.info(r'connection made: {0}'.format(self.client_address))
+        Utils.log.info(f'connection made: {self.client_address}')
 
     async def connection_lost(self):
 
-        Utils.log.info(r'connection lost: {0}'.format(self.client_address))
+        Utils.log.info(f'connection lost: {self.client_address}')
 
     async def data_received(self, chunk):
 
@@ -36,8 +36,8 @@ def main():
         ConfigStatic.read(r'./static.conf')
         ConfigDynamic.read(r'./dynamic.conf')
     else:
-        ConfigStatic.read(r'./static.{0}.conf'.format(cluster.lower()))
-        ConfigDynamic.read(r'./dynamic.{0}.conf'.format(cluster.lower()))
+        ConfigStatic.read(f'./static.{cluster.lower()}.conf')
+        ConfigDynamic.read(f'./dynamic.{cluster.lower()}.conf')
 
     Launcher(
         EchoProtocol,

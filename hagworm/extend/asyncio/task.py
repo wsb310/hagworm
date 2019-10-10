@@ -6,10 +6,12 @@ from crontab import CronTab
 
 from hagworm.extend.interface import TaskInterface
 
-from .base import Utils, async_adapter
+from .base import Utils
 
 
 class _BaseTask(TaskInterface):
+    """异步任务基类
+    """
 
     @classmethod
     def create(cls, promptly, _callable, *args, **kwargs):
@@ -43,7 +45,7 @@ class _BaseTask(TaskInterface):
         self._running = True
 
         if promptly:
-            self._event_loop.call_soon(self._run)
+            self._timeout = Utils.call_soon(self._run)
         else:
             self._schedule_next()
 
@@ -60,7 +62,6 @@ class _BaseTask(TaskInterface):
 
         return self._running
 
-    @async_adapter
     async def _run(self):
 
         if not self._running:
@@ -68,10 +69,9 @@ class _BaseTask(TaskInterface):
 
         try:
 
-            future = self._callable()
-
-            if Utils.isawaitable(future):
-                await future
+            await Utils.awaitable_wrapper(
+                self._callable()
+            )
 
         except Exception as err:
 
@@ -84,7 +84,7 @@ class _BaseTask(TaskInterface):
     def _schedule_next(self):
 
         if self._running:
-            self._timeout = self._event_loop.call_at(self._update_next(), self._run)
+            self._timeout = Utils.call_at(self._update_next(), self._run)
 
     def _update_next(self):
 
@@ -94,6 +94,8 @@ class _BaseTask(TaskInterface):
 
 
 class LoopTask(_BaseTask):
+    """循环任务类
+    """
 
     @classmethod
     def create(cls, limit_time, promptly, _callable, *args, **kwargs):
@@ -127,6 +129,8 @@ class LoopTask(_BaseTask):
 
 
 class IntervalTask(_BaseTask):
+    """间隔任务类
+    """
 
     @classmethod
     def create(cls, interval, promptly, _callable, *args, **kwargs):
@@ -154,6 +158,8 @@ class IntervalTask(_BaseTask):
 
 
 class CronTask(_BaseTask, CronTab):
+    """定时任务类
+    """
 
     @classmethod
     def create(cls, crontab, promptly, _callable, *args, **kwargs):
@@ -169,7 +175,7 @@ class CronTask(_BaseTask, CronTab):
 
     def __init__(self, _callable, crontab):
 
-        LoopTask.__init__(self, _callable, 0)
+        _BaseTask.__init__(self, _callable)
         CronTab.__init__(self, crontab)
 
     def _update_next(self):

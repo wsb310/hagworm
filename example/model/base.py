@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from hagworm.extend.base import Ignore
+from hagworm.extend.base import Ignore, catch_error
 from hagworm.extend.metaclass import Singleton
-from hagworm.extend.asyncio.base import Utils, async_adapter
+from hagworm.extend.asyncio.base import Utils, FuncCache, MultiTasks, async_adapter
 from hagworm.extend.asyncio.cache import RedisDelegate
 from hagworm.extend.asyncio.database import MongoDelegate, MySQLDelegate
 
@@ -52,6 +52,25 @@ class DataSource(Singleton, RedisDelegate, MongoDelegate, MySQLDelegate):
                 minsize=ConfigStatic.MySqlSlaveMinConn, maxsize=ConfigStatic.MySqlSlaveMaxConn,
                 readonly=True, echo=ConfigDynamic.Debug
             )
+
+    @FuncCache()
+    async def health(self):
+
+        result = False
+
+        with catch_error():
+
+            tasks = MultiTasks()
+
+            tasks.append(self.cache_health())
+            tasks.append(self.mysql_health())
+            tasks.append(self.mongo_health())
+
+            await tasks
+
+            result = all(tasks)
+
+        return result
 
 
 class _ModelBase(Singleton, Utils):

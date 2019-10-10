@@ -18,26 +18,51 @@ class _STATE(Enum):
     FINISHED = 0x02
 
 
+_DEFAULT_TIMEOUT = aiohttp.client.ClientTimeout(total=60, connect=5, sock_read=60, sock_connect=5)
+_DOWNLOAD_TIMEOUT = aiohttp.client.ClientTimeout(total=600, connect=5, sock_read=600, sock_connect=5)
+
+_CA_FILE = os.path.join(
+    os.path.split(os.path.abspath(__file__))[0],
+    r'../../static/cacert.pem'
+)
+
+
 class _HTTPClient:
+    """HTTP客户端基类
+    """
 
-    def __init__(self, retry_count=5, read_timeout=60, conn_timeout=10, **kwargs):
+    def __init__(self, retry_count=5, timeout=_DEFAULT_TIMEOUT, **kwargs):
 
-        self._ssl_context = ssl.create_default_context(
-            cafile=os.path.join(
-                os.path.split(os.path.abspath(__file__))[0],
-                r'../../static/cacert.pem'
-            )
-        )
+        self._ssl_context = ssl.create_default_context(cafile=_CA_FILE)
 
         self._retry_count = retry_count
 
         self._session_config = kwargs
-        self._session_config[r'read_timeout'] = read_timeout
-        self._session_config[r'conn_timeout'] = conn_timeout
+        self._session_config[r'timeout'] = timeout
 
-    def _sleep_for_retry(self, times):
+    async def _sleep_for_retry(self, times):
 
-        return Utils.sleep(times)
+        return await Utils.sleep(times)
+
+    async def _handle_response(self, response):
+
+        return await response.read()
+
+    def timeout(self, *, total=None, connect=None, sock_read=None, sock_connect=None):
+        """生成超时配置对象
+
+        Args:
+            total: 总超时时间
+            connect: 从连接池中等待获取连接的超时时间
+            sock_read: Socket数据接收的超时时间
+            sock_connect: Socket连接的超时时间
+
+        """
+
+        return aiohttp.client.ClientTimeout(
+            total=total, connect=connect,
+            sock_read=sock_read, sock_connect=sock_connect
+        )
 
     async def request(self, method, url, data=None, params=None, **kwargs):
 
@@ -64,12 +89,12 @@ class _HTTPClient:
             )
         )
 
-        kwargs.setdefault(r'ssl_context', self._ssl_context)
+        kwargs.setdefault(r'ssl', self._ssl_context)
 
         for times in range(0, self._retry_count):
 
             if times > 0:
-                Utils.log.debug(r'{0} {1} => retry:{2}'.format(method, url, times))
+                Utils.log.debug(f'{method} {url} => retry:{times}')
 
             try:
 
@@ -81,13 +106,7 @@ class _HTTPClient:
 
                         response = await self._handle_response(_response)
 
-                Utils.log.info(
-                    r'{0} {1} => status:{2}'.format(
-                        method,
-                        url,
-                        _response.status
-                    )
-                )
+                Utils.log.info(f'{method} {url} => status:{_response.status}')
 
             except aiohttp.ClientResponseError as err:
 
@@ -116,12 +135,10 @@ class _HTTPClient:
 
         return headers, response
 
-    async def _handle_response(self, response):
-
-        return await response.read()
-
 
 class _HTTPTextMixin:
+    """Text模式混入类
+    """
 
     async def _handle_response(self, response):
 
@@ -129,13 +146,17 @@ class _HTTPTextMixin:
 
 
 class _HTTPJsonMixin:
+    """Json模式混入类
+    """
 
     async def _handle_response(self, response):
 
-        return await response.json()
+        return await response.json(encoding=r'utf-8', content_type=None)
 
 
 class _HTTPTouchMixin:
+    """Touch模式混入类，不接收body数据
+    """
 
     async def _handle_response(self, response):
 
@@ -143,6 +164,8 @@ class _HTTPTouchMixin:
 
 
 class HTTPClient(_HTTPClient):
+    """HTTP客户端，普通模式
+    """
 
     async def get(self, url, params=None, *, cookies=None, headers=None):
 
@@ -188,51 +211,77 @@ class HTTPClient(_HTTPClient):
 
 
 class HTTPTextClient(_HTTPTextMixin, HTTPClient):
+    """HTTP客户端，Text模式
+    """
     pass
 
 
 class HTTPJsonClient(_HTTPJsonMixin, HTTPClient):
+    """HTTP客户端，Json模式
+    """
     pass
 
 
 class HTTPTouchClient(_HTTPTouchMixin, HTTPClient):
+    """HTTP客户端，Touch模式
+    """
     pass
 
 
 class HTTPClientPool(HTTPClient):
+    """HTTP带连接池客户端，普通模式
+    """
 
-    def __init__(self, retry_count=5, use_dns_cache=True, ttl_dns_cache=10, limit=100, limit_per_host=0, read_timeout=60, conn_timeout=10, **kwargs):
+    def __init__(self,
+                 retry_count=5, use_dns_cache=True, ttl_dns_cache=10,
+                 limit=100, limit_per_host=0, timeout=_DEFAULT_TIMEOUT,
+                 **kwargs
+                 ):
 
-        super().__init__(retry_count, read_timeout, conn_timeout, **kwargs)
+        super().__init__(retry_count, timeout, **kwargs)
 
         self._tcp_connector = aiohttp.TCPConnector(
             use_dns_cache=use_dns_cache,
             ttl_dns_cache=ttl_dns_cache,
-            ssl_context=self._ssl_context,
+            ssl=self._ssl_context,
             limit=limit,
             limit_per_host=limit_per_host,
         )
 
         self._session_config[r'connector'] = self._tcp_connector
+        self._session_config[r'connector_owner'] = False
+
+    async def close(self):
+
+        if not self._tcp_connector.closed:
+            await self._tcp_connector.close()
 
 
 class HTTPTextClientPool(_HTTPTextMixin, HTTPClientPool):
+    """HTTP带连接池客户端，Text模式
+    """
     pass
 
 
 class HTTPJsonClientPool(_HTTPJsonMixin, HTTPClientPool):
+    """HTTP带连接池客户端，Json模式
+    """
     pass
 
 
 class HTTPTouchClientPool(_HTTPTouchMixin, HTTPClientPool):
+    """HTTP带连接池客户端，Touch模式
+    """
     pass
 
 
 class Downloader(_HTTPClient):
+    """HTTP文件下载器
+    """
 
-    def __init__(self, file, retry_count=5, read_timeout=65535, conn_timeout=60, **kwargs):
+    def __init__(self, file, retry_count=5, timeout=_DOWNLOAD_TIMEOUT, **kwargs):
 
-        super().__init__(retry_count, read_timeout, conn_timeout, **kwargs)
+        super().__init__(retry_count, timeout, **kwargs)
 
         self._file = file
 
@@ -240,9 +289,9 @@ class Downloader(_HTTPClient):
 
         self._response = None
 
-    def _sleep_for_retry(self, times):
+    async def _sleep_for_retry(self, times):
 
-        return Utils.sleep(2 ** times)
+        return await Utils.sleep(2 ** times)
 
     @property
     def finished(self):
@@ -291,10 +340,12 @@ class Downloader(_HTTPClient):
 
 
 class DownloadBuffer(Downloader):
+    """HTTP文件下载器(临时文件版)
+    """
 
-    def __init__(self, read_timeout=65535, conn_timeout=10, **kwargs):
+    def __init__(self, timeout=_DOWNLOAD_TIMEOUT, **kwargs):
 
-        super().__init__(FileBuffer(), 1, read_timeout, conn_timeout, **kwargs)
+        super().__init__(FileBuffer(), 1, timeout, **kwargs)
 
     @property
     def buffer(self):

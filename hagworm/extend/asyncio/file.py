@@ -7,6 +7,8 @@ from hagworm.extend.asyncio.future import ThreadPool
 
 
 class FileLoader:
+    """带缓存的网络文件加载器
+    """
 
     def __init__(self, maxsize=0xff, ttl=3600, thread=32):
 
