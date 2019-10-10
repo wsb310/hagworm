@@ -2,12 +2,12 @@
 
 import setuptools
 
-with open(r'README.md', r'r') as stream:
+with open(r'README.md', r'r', encoding=r'utf8') as stream:
     long_description = stream.read()
 
 setuptools.setup(
     name=r'hagworm',
-    version=r'3.1.0',
+    version=r'3.1.1',
     license=r'Apache License Version 2.0',
     platforms=[r'all'],
     author=r'Shaobo.Wang',
