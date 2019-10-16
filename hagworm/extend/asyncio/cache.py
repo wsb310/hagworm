@@ -202,10 +202,6 @@ class MCache(aioredis.Redis, AsyncContextManager):
 
         return MLock(self, key, expire)
 
-    def mutex_lock(self, key, expire=60):
-
-        return MutexLock(self, key, expire)
-
     # PUB/SUB COMMANDS
 
     async def subscribe(self, channel, *channels):
@@ -316,7 +312,7 @@ class MLock(AsyncContextManager):
 
     _renew_script = '''
 if redis.call("get",KEYS[1]) == ARGV[1] and redis.call("ttl",KEYS[1]) > 0 then
-    return redis.call("expire",KEYS[1],ARGV[1])
+    return redis.call("expire",KEYS[1],ARGV[2])
 else
     return 0
 end
@@ -390,7 +386,7 @@ end
 
         if self._locked:
 
-            if await self._cache.eval(self._renew_script, [self._lock_tag], [self._lock_val]):
+            if await self._cache.eval(self._renew_script, [self._lock_tag], [self._lock_val, self._expire]):
                 self._locked = True
             else:
                 self._locked = False
