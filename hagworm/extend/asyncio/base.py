@@ -272,14 +272,14 @@ class FutureWithTimeout(asyncio.Future):
     """带超时功能的Future
     """
 
-    def __init__(self, delay):
+    def __init__(self, delay, default=None):
 
         super().__init__()
 
         self._timeout_handle = Utils.call_later(
             delay,
             self.set_result,
-            None
+            default
         )
 
         self.add_done_callback(self._clear_timeout)

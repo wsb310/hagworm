@@ -30,31 +30,32 @@ pip install hagworm
 ### 3. 代码树结构
 
 ```text
-├── extend                                      package     基础扩展
-│   ├── asyncio                                 package     asyncio扩展
-│   │   ├── base.py
-│   │   ├── cache.py
-│   │   ├── database.py
-│   │   ├── event.py
-│   │   ├── file.py
-│   │   ├── future.py
-│   │   └── net.py
-│   ├── base.py
-│   ├── compile.py
-│   ├── crypto.py
-│   ├── event.py
-│   ├── excel.py
-│   ├── interface.py
-│   ├── metaclass.py
-│   └── struct.py
-├── frame                                       package     三方框架扩展
-│   └── tornado
-│       ├── base.py
-│       ├── cache.py
-│       ├── future.py
-│       ├── template.py
-│       └── web.py
-└── static                                      package     静态资源
+├── extend                                      基础扩展
+│   ├── asyncio                                 asyncio扩展
+│   │   ├── base.py                             异步工具库
+│   │   ├── cache.py                            缓存相关
+│   │   ├── database.py                         数据库相关
+│   │   ├── event.py                            分布式事件总线
+│   │   ├── file.py                             文件读写相关
+│   │   ├── future.py                           协程相关
+│   │   ├── net.py                              网络工具
+│   │   └── task.py                             任务相关
+│   ├── base.py                                 基础工具
+│   ├── compile.py                              pyc编译
+│   ├── crypto.py                               加解密相关
+│   ├── event.py                                事件总线
+│   ├── excel.py                                excel封装
+│   ├── interface.py                            接口定义
+│   ├── metaclass.py                            元类相关
+│   └── struct.py                               数据结构
+├── frame                                       三方框架扩展
+│   └── tornado                                 tornado扩展
+│       ├── base.py                             http基础工具
+│       ├── socket.py                           socket基础工具
+│       └── web.py                              http请求处理工具
+├── static                                      静态资源
+│   └── cacert.pem                              SSL根证书
+└── third                                       三方库扩展
 ```
 
 ### 4. 重要提示

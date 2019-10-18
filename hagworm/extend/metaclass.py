@@ -31,7 +31,9 @@ class SingletonMetaclass(type):
 
             traceback.print_exc()
 
-        cls._lock.release()
+        finally:
+
+            cls._lock.release()
 
         return result
 
