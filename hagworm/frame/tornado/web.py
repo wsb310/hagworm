@@ -87,7 +87,7 @@ class FormInjection:
             else:
 
                 return handler.write_json(
-                    Result(-1, r'bad parameter', form.errors),
+                    Result(-1, form.errors),
                     400
                 )
 
