@@ -58,12 +58,13 @@ class FormInjection:
     """表单注入器
     """
 
-    def __init__(self, form_cls=None):
+    def __init__(self, form_cls=None, err_code=-1):
 
         if not issubclass(form_cls, Form):
             raise TypeError(r'Dot Implemented Form Interface')
 
         self._form_cls = form_cls
+        self._err_code = err_code
 
     def __call__(self, func):
 
@@ -87,7 +88,7 @@ class FormInjection:
             else:
 
                 return handler.write_json(
-                    Result(-1, form.errors),
+                    Result(self._err_code, form.errors),
                     400
                 )
 
