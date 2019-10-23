@@ -52,16 +52,36 @@ class TestHTTPClient:
 
     async def test_http_client_pool(self):
 
-        await self._http_client(HTTPClientPool())
+        pool = HTTPClientPool()
+
+        await self._http_client(pool)
+        await self._http_client_pool(pool)
+
+        await pool.close()
 
     async def test_http_text_client_pool(self):
 
-        await self._http_client(HTTPTextClientPool())
+        pool = HTTPTextClientPool()
+
+        await self._http_client(pool)
+        await self._http_client_pool(pool)
+
+        await pool.close()
 
     async def test_http_json_client_pool(self):
 
-        await self._http_client(HTTPJsonClientPool())
+        pool = HTTPJsonClientPool()
+
+        await self._http_client(pool)
+        await self._http_client_pool(pool)
+
+        await pool.close()
 
     async def test_http_touch_client_pool(self):
 
-        await self._http_client(HTTPTouchClientPool())
+        pool = HTTPTouchClientPool()
+
+        await self._http_client(pool)
+        await self._http_client_pool(pool)
+
+        await pool.close()
