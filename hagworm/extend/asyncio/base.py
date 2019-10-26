@@ -506,8 +506,21 @@ class AsyncContextManager:
         raise NotImplementedError()
 
 
+class FuncWrapper(base.FuncWrapper):
+    """非阻塞异步函数包装器
+
+    将多个同步或异步函数包装成一个可调用对象
+
+    """
+
+    def __call__(self, *args, **kwargs):
+
+        for func in self._callables:
+            Utils.call_soon(func, *args, **kwargs)
+
+
 class AsyncFuncWrapper(base.FuncWrapper):
-    """异步函数包装器
+    """阻塞式异步函数包装器
 
     将多个同步或异步函数包装成一个可调用对象
 
