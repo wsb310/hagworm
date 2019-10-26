@@ -97,7 +97,5 @@ class EventWaiter(FutureWithTimeout):
 
     def _event_handler(self, *args, **kwargs):
 
-        if self.done():
-            return
-
-        self.set_result({r'args': args, r'kwargs': kwargs})
+        if not self.done():
+            Utils.call_soon(self.set_result, {r'args': args, r'kwargs': kwargs})
