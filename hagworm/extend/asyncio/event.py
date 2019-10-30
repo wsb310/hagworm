@@ -3,7 +3,7 @@
 from aioredis.pubsub import Receiver
 
 from hagworm.extend.event import EventDispatcher
-from hagworm.extend.asyncio.base import Utils, AsyncCirculator, AsyncFuncWrapper, FutureWithTimeout
+from hagworm.extend.asyncio.base import Utils, AsyncCirculator, FuncWrapper, FutureWithTimeout
 
 
 class DistributedEvent(EventDispatcher):
@@ -47,11 +47,11 @@ class DistributedEvent(EventDispatcher):
         kwargs = message.get(r'kwargs', {})
 
         if _type in self._observers:
-            await self._observers[_type](*args, **kwargs)
+            self._observers[_type](*args, **kwargs)
 
     def _gen_observer(self):
 
-        return AsyncFuncWrapper()
+        return FuncWrapper()
 
     async def dispatch(self, _type, *args, **kwargs):
 
@@ -97,7 +97,5 @@ class EventWaiter(FutureWithTimeout):
 
     def _event_handler(self, *args, **kwargs):
 
-        if self.done():
-            return
-
-        self.set_result({r'args': args, r'kwargs': kwargs})
+        if not self.done():
+            self.set_result({r'args': args, r'kwargs': kwargs})

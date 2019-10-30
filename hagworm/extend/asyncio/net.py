@@ -64,7 +64,7 @@ class _HTTPClient:
             sock_read=sock_read, sock_connect=sock_connect
         )
 
-    async def request(self, method, url, data=None, params=None, **kwargs):
+    async def send_request(self, method, url, data=None, params=None, **kwargs):
 
         headers = response = None
 
@@ -169,43 +169,43 @@ class HTTPClient(_HTTPClient):
 
     async def get(self, url, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+        _, result = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
 
         return result
 
     async def options(self, url, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.request(aiohttp.hdrs.METH_OPTIONS, url, None, params, cookies=cookies, headers=headers)
+        _, result = await self.send_request(aiohttp.hdrs.METH_OPTIONS, url, None, params, cookies=cookies, headers=headers)
 
         return result
 
     async def head(self, url, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.request(aiohttp.hdrs.METH_HEAD, url, None, params, cookies=cookies, headers=headers)
+        _, result = await self.send_request(aiohttp.hdrs.METH_HEAD, url, None, params, cookies=cookies, headers=headers)
 
         return result
 
     async def post(self, url, data=None, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.request(aiohttp.hdrs.METH_POST, url, data, params, cookies=cookies, headers=headers)
+        _, result = await self.send_request(aiohttp.hdrs.METH_POST, url, data, params, cookies=cookies, headers=headers)
 
         return result
 
     async def put(self, url, data=None, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.request(aiohttp.hdrs.METH_PUT, url, data, params, cookies=cookies, headers=headers)
+        _, result = await self.send_request(aiohttp.hdrs.METH_PUT, url, data, params, cookies=cookies, headers=headers)
 
         return result
 
     async def patch(self, url, data=None, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.request(aiohttp.hdrs.METH_PATCH, url, data, params, cookies=cookies, headers=headers)
+        _, result = await self.send_request(aiohttp.hdrs.METH_PATCH, url, data, params, cookies=cookies, headers=headers)
 
         return result
 
     async def delete(self, url, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.request(aiohttp.hdrs.METH_DELETE, url, None, params, cookies=cookies, headers=headers)
+        _, result = await self.send_request(aiohttp.hdrs.METH_DELETE, url, None, params, cookies=cookies, headers=headers)
 
         return result
 
@@ -334,7 +334,7 @@ class Downloader(_HTTPClient):
 
     async def fetch(self, url, *, params=None, cookies=None, headers=None):
 
-        _, result = await self.request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+        _, result = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
 
         return result
 
@@ -384,6 +384,6 @@ class DownloadBuffer(Downloader):
 
     async def fetch(self, url, *, params=None, cookies=None, headers=None):
 
-        _, result = await self.request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+        _, result = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
 
         return result
