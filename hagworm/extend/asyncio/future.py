@@ -102,7 +102,7 @@ class SubProcess(TaskInterface):
 
     def is_running(self):
 
-        return self._process is not None and self._process.returncode() is None
+        return self._process is not None and self._process.returncode is None
 
     async def start(self):
 
