@@ -31,7 +31,7 @@ class _BaseTask(TaskInterface):
         self._next_timeout = 0
 
         self._event_loop = None
-        self._timeout = None
+        self._timeout_handle = None
 
         self._callable = _callable
 
@@ -45,7 +45,7 @@ class _BaseTask(TaskInterface):
         self._running = True
 
         if promptly:
-            self._timeout = Utils.call_soon(self._run)
+            self._timeout_handle = Utils.call_soon(self._run)
         else:
             self._schedule_next()
 
@@ -53,10 +53,9 @@ class _BaseTask(TaskInterface):
 
         self._running = False
 
-        if self._event_loop is not None and self._timeout is not None:
-            self._event_loop.remove_timeout(self._timeout)
-            self._event_loop = None
-            self._timeout = None
+        if self._timeout_handle is not None:
+            self._timeout_handle.cancel()
+            self._timeout_handle = None
 
     def is_running(self):
 
@@ -84,7 +83,7 @@ class _BaseTask(TaskInterface):
     def _schedule_next(self):
 
         if self._running:
-            self._timeout = Utils.call_at(self._update_next(), self._run)
+            self._timeout_handle = Utils.call_at(self._update_next(), self._run)
 
     def _update_next(self):
 
