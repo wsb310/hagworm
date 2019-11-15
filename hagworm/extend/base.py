@@ -898,7 +898,10 @@ class FuncWrapper:
     def __call__(self, *args, **kwargs):
 
         for func in self._callables:
-            func(*args, **kwargs)
+            try:
+                func(*args, **kwargs)
+            except Exception as err:
+                Utils.log.error(err)
 
     @property
     def is_valid(self):

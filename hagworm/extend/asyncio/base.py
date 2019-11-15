@@ -530,9 +530,15 @@ class AsyncFuncWrapper(base.FuncWrapper):
 
         for func in self._callables:
 
-            await Utils.awaitable_wrapper(
-                func(*args, **kwargs)
-            )
+            try:
+
+                await Utils.awaitable_wrapper(
+                    func(*args, **kwargs)
+                )
+
+            except Exception as err:
+
+                Utils.log.error(err)
 
 
 class Transaction(AsyncContextManager):

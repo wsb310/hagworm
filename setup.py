@@ -7,7 +7,7 @@ with open(r'README.md', r'r', encoding=r'utf8') as stream:
 
 setuptools.setup(
     name=r'hagworm',
-    version=r'3.2.4',
+    version=r'3.2.5',
     license=r'Apache License Version 2.0',
     platforms=[r'all'],
     author=r'Shaobo.Wang',
