@@ -2,6 +2,7 @@
 
 import os
 import ssl
+import json
 import aiohttp
 
 from enum import Enum
@@ -18,13 +19,47 @@ class _STATE(Enum):
     FINISHED = 0x02
 
 
-_DEFAULT_TIMEOUT = aiohttp.client.ClientTimeout(total=60, connect=5, sock_read=60, sock_connect=5)
-_DOWNLOAD_TIMEOUT = aiohttp.client.ClientTimeout(total=600, connect=5, sock_read=600, sock_connect=5)
+_DEFAULT_TIMEOUT = aiohttp.client.ClientTimeout(total=60, connect=10, sock_read=60, sock_connect=10)
+_DOWNLOAD_TIMEOUT = aiohttp.client.ClientTimeout(total=600, connect=10, sock_read=600, sock_connect=10)
 
 _CA_FILE = os.path.join(
     os.path.split(os.path.abspath(__file__))[0],
     r'../../static/cacert.pem'
 )
+
+
+def _json_decoder(val, *args, **kwargs):
+
+    try:
+        return json.loads(val, *args, **kwargs)
+    except Exception as err:
+        Utils.log.error(f'http client json decode error: {err} => {val}')
+
+
+class Response(dict):
+
+    def __init__(self, status, headers, body):
+
+        super().__init__(status=status, headers=headers, body=body)
+
+    def __bool__(self):
+
+        return (self.status >= 200) and (self.status <= 299)
+
+    @property
+    def status(self):
+
+        return self.get(r'status')
+
+    @property
+    def headers(self):
+
+        return self.get(r'headers')
+
+    @property
+    def body(self):
+
+        return self.get(r'body')
 
 
 class _HTTPClient:
@@ -39,6 +74,7 @@ class _HTTPClient:
 
         self._session_config = kwargs
         self._session_config[r'timeout'] = timeout
+        self._session_config.setdefault(r'raise_for_status', True)
 
     async def _sleep_for_retry(self, times):
 
@@ -64,32 +100,30 @@ class _HTTPClient:
             sock_read=sock_read, sock_connect=sock_connect
         )
 
-    async def send_request(self, method, url, data=None, params=None, **kwargs):
+    async def send_request(self, method, url, data=None, params=None, cookies=None, headers={}, **settings) -> Response:
 
-        headers = response = None
+        response = None
 
         if isinstance(data, dict):
-
-            if headers is None:
-                headers = {}
-
             headers.setdefault(
                 r'Content-Type',
                 r'application/x-www-form-urlencoded'
             )
 
-        kwargs[r'data'] = data
-        kwargs[r'params'] = params
+        settings[r'data'] = data
+        settings[r'params'] = params
+        settings[r'cookies'] = cookies
+        settings[r'headers'] = headers
 
         Utils.log.debug(
             r'{0} {1} => {2}'.format(
                 method,
                 url,
-                str({key: val for key, val in kwargs.items() if isinstance(val, (str, list, dict))})
+                str({key: val for key, val in settings.items() if isinstance(val, (str, list, dict))})
             )
         )
 
-        kwargs.setdefault(r'ssl', self._ssl_context)
+        settings.setdefault(r'ssl', self._ssl_context)
 
         for times in range(0, self._retry_count):
 
@@ -100,13 +134,15 @@ class _HTTPClient:
 
                 async with aiohttp.ClientSession(**self._session_config) as _session:
 
-                    async with _session.request(method, url, **kwargs) as _response:
+                    async with _session.request(method, url, **settings) as _response:
 
-                        headers = dict(_response.headers)
+                        response = Response(
+                            _response.status,
+                            dict(_response.headers),
+                            await self._handle_response(_response)
+                        )
 
-                        response = await self._handle_response(_response)
-
-                Utils.log.info(f'{method} {url} => status:{_response.status}')
+                Utils.log.info(f'{method} {url} => status:{response.status}')
 
             except aiohttp.ClientResponseError as err:
 
@@ -133,7 +169,7 @@ class _HTTPClient:
 
                 break
 
-        return headers, response
+        return response
 
 
 class _HTTPTextMixin:
@@ -151,7 +187,7 @@ class _HTTPJsonMixin:
 
     async def _handle_response(self, response):
 
-        return await response.json(encoding=r'utf-8', content_type=None)
+        return await response.json(encoding=r'utf-8', loads=_json_decoder, content_type=None)
 
 
 class _HTTPTouchMixin:
@@ -169,45 +205,45 @@ class HTTPClient(_HTTPClient):
 
     async def get(self, url, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+        response = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
 
-        return result
+        return response.body
 
     async def options(self, url, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.send_request(aiohttp.hdrs.METH_OPTIONS, url, None, params, cookies=cookies, headers=headers)
+        response = await self.send_request(aiohttp.hdrs.METH_OPTIONS, url, None, params, cookies=cookies, headers=headers)
 
-        return result
+        return response.body
 
     async def head(self, url, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.send_request(aiohttp.hdrs.METH_HEAD, url, None, params, cookies=cookies, headers=headers)
+        response = await self.send_request(aiohttp.hdrs.METH_HEAD, url, None, params, cookies=cookies, headers=headers)
 
-        return result
+        return response.body
 
     async def post(self, url, data=None, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.send_request(aiohttp.hdrs.METH_POST, url, data, params, cookies=cookies, headers=headers)
+        response = await self.send_request(aiohttp.hdrs.METH_POST, url, data, params, cookies=cookies, headers=headers)
 
-        return result
+        return response.body
 
     async def put(self, url, data=None, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.send_request(aiohttp.hdrs.METH_PUT, url, data, params, cookies=cookies, headers=headers)
+        response = await self.send_request(aiohttp.hdrs.METH_PUT, url, data, params, cookies=cookies, headers=headers)
 
-        return result
+        return response.body
 
     async def patch(self, url, data=None, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.send_request(aiohttp.hdrs.METH_PATCH, url, data, params, cookies=cookies, headers=headers)
+        response = await self.send_request(aiohttp.hdrs.METH_PATCH, url, data, params, cookies=cookies, headers=headers)
 
-        return result
+        return response.body
 
     async def delete(self, url, params=None, *, cookies=None, headers=None):
 
-        _, result = await self.send_request(aiohttp.hdrs.METH_DELETE, url, None, params, cookies=cookies, headers=headers)
+        response = await self.send_request(aiohttp.hdrs.METH_DELETE, url, None, params, cookies=cookies, headers=headers)
 
-        return result
+        return response.body
 
 
 class HTTPTextClient(_HTTPTextMixin, HTTPClient):
@@ -334,9 +370,9 @@ class Downloader(_HTTPClient):
 
     async def fetch(self, url, *, params=None, cookies=None, headers=None):
 
-        _, result = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+        response = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
 
-        return result
+        return response.body
 
 
 class DownloadBuffer(Downloader):
@@ -384,6 +420,6 @@ class DownloadBuffer(Downloader):
 
     async def fetch(self, url, *, params=None, cookies=None, headers=None):
 
-        _, result = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+        response = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
 
-        return result
+        return bool(response)

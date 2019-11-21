@@ -39,7 +39,7 @@ class SingletonMetaclass(type):
 
 
 class Singleton(metaclass=SingletonMetaclass):
-    """单例装饰器
+    """单例基类
     """
     pass
 
