@@ -43,8 +43,6 @@ class _LauncherBase(TaskInterface):
 
     def _initialize(self, **kwargs):
 
-        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\npython version {sys.version}')
-
         self._process_num = kwargs.get(r'process_num', 1)
         self._async_initialize = kwargs.get(r'async_initialize', None)
 
@@ -92,6 +90,8 @@ class _LauncherBase(TaskInterface):
             Utils.log.level(log_level)
 
         logging.getLogger(None).addHandler(_InterceptHandler())
+
+        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\npython version {sys.version}')
 
     def start(self):
 
