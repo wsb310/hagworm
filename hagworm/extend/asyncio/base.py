@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import types
 import weakref
 import inspect
@@ -8,6 +9,8 @@ import functools
 
 from contextvars import Context, ContextVar
 
+from hagworm import package_slogan
+from hagworm import __version__ as package_version
 from hagworm.extend import base
 
 
@@ -19,6 +22,8 @@ class Launcher:
     """
 
     def __init__(self, log_file_path=None, log_level=r'INFO', log_file_num_backups=7, debug=False):
+
+        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\npython version {sys.version}')
 
         if log_file_path:
 

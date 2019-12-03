@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import signal
 import asyncio
 import logging
@@ -15,6 +16,8 @@ from tornado.netutil import bind_sockets
 from tornado.httpserver import HTTPServer
 from tornado.platform.asyncio import AsyncIOMainLoop
 
+from hagworm import package_slogan
+from hagworm import __version__ as package_version
 from hagworm.extend.base import Utils
 from hagworm.extend.interface import TaskInterface
 
@@ -39,6 +42,8 @@ class _LauncherBase(TaskInterface):
     """
 
     def _initialize(self, **kwargs):
+
+        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\npython version {sys.version}')
 
         self._process_num = kwargs.get(r'process_num', 1)
         self._async_initialize = kwargs.get(r'async_initialize', None)

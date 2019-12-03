@@ -100,9 +100,12 @@ class _HTTPClient:
             sock_read=sock_read, sock_connect=sock_connect
         )
 
-    async def send_request(self, method, url, data=None, params=None, cookies=None, headers={}, **settings) -> Response:
+    async def send_request(self, method, url, data=None, params=None, cookies=None, headers=None, **settings) -> Response:
 
         response = None
+
+        if headers is None:
+            headers = {}
 
         if isinstance(data, dict):
             headers.setdefault(
