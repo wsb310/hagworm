@@ -13,6 +13,23 @@ from hagworm.extend.asyncio.net import DownloadBuffer
 from wtforms_tornado import Form
 
 
+def json_wraps(func):
+    """json装饰器
+    """
+
+    @functools.wraps(func)
+    async def _wrapper(handler, *args, **kwargs):
+
+        resp = await Utils.awaitable_wrapper(
+            func(handler, *args, **kwargs)
+        )
+
+        if isinstance(resp, Result):
+            return handler.write_json(resp)
+
+    return _wrapper
+
+
 class HttpBasicAuth:
     """Http基础认证装饰器
     """
@@ -78,12 +95,7 @@ class FormInjection:
 
             if form.validate():
 
-                resp = await Utils.awaitable_wrapper(
-                    func(handler, *args, **kwargs)
-                )
-
-                if isinstance(resp, Result):
-                    return handler.write_json(resp)
+                await json_wraps(func)(handler, *args, **kwargs)
 
             else:
 

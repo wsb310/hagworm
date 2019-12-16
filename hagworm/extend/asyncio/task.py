@@ -172,13 +172,24 @@ class CronTask(_BaseTask, CronTab):
 
         return task
 
-    def __init__(self, _callable, crontab):
+    def __init__(self, _callable, crontab, default_now=None, default_utc=None):
 
         _BaseTask.__init__(self, _callable)
         CronTab.__init__(self, crontab)
 
+        self._default_now = default_now
+        self._default_utc = default_utc
+
     def _update_next(self):
 
-        self._next_timeout = self._event_loop.time() + self.next(default_utc=True)
+        params = {}
+
+        if self._default_now is not None:
+            params[r'now'] = self._default_now
+
+        if self._default_utc is not None:
+            params[r'default_utc'] = self._default_utc
+
+        self._next_timeout = self._event_loop.time() + self.next(**params)
 
         return self._next_timeout
