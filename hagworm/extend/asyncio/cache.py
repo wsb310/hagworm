@@ -4,6 +4,7 @@ import aioredis
 
 from aioredis.util import _NOTSET
 from aioredis.commands.string import StringCommandsMixin
+from aioredis.errors import ReplyError, MaxClientsError, AuthError, ReadOnlyError
 
 from contextlib import asynccontextmanager
 
@@ -164,19 +165,41 @@ class MCache(aioredis.Redis, AsyncContextManager):
 
         except Exception as err:
 
-            await self._close_conn(True)
-
             Utils.log.exception(err)
+
+            await self._close_conn(True)
 
     async def execute(self, command, *args, **kwargs):
 
-        for _ in range(0xff):
+        result = None
 
-            async with self.catch_error():
+        async for _ in AsyncCirculator(1):
+
+            try:
 
                 await self._init_conn()
 
-                return await super().execute(command, *args, **kwargs)
+                result = await super().execute(command, *args, **kwargs)
+
+            except (ReplyError, MaxClientsError, AuthError, ReadOnlyError) as err:
+
+                Utils.log.exception(err)
+
+                await self._close_conn(True)
+
+                break
+
+            except Exception as err:
+
+                Utils.log.exception(err)
+
+                await self._close_conn(True)
+
+            else:
+
+                break
+
+        return result
 
     def _val_encode(self, val):
 
@@ -206,30 +229,34 @@ class MCache(aioredis.Redis, AsyncContextManager):
 
     async def subscribe(self, channel, *channels):
 
-        await self._init_conn()
-
         async with self.catch_error():
+
+            await self._init_conn()
+
             return await super().subscribe(channel, *channels)
 
     async def unsubscribe(self, channel, *channels):
 
-        await self._init_conn()
-
         async with self.catch_error():
+
+            await self._init_conn()
+
             return await super().unsubscribe(channel, *channels)
 
     async def psubscribe(self, pattern, *patterns):
 
-        await self._init_conn()
-
         async with self.catch_error():
+
+            await self._init_conn()
+
             return await super().psubscribe(pattern, *patterns)
 
     async def punsubscribe(self, pattern, *patterns):
 
-        await self._init_conn()
-
         async with self.catch_error():
+
+            await self._init_conn()
+
             return await super().punsubscribe(pattern, *patterns)
 
     @property

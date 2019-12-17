@@ -23,8 +23,6 @@ class Launcher:
 
     def __init__(self, log_file_path=None, log_level=r'INFO', log_file_num_backups=7, debug=False):
 
-        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\npython version {sys.version}')
-
         if log_file_path:
 
             _log_file_path = Utils.path.join(
@@ -47,6 +45,8 @@ class Launcher:
 
         self._event_loop = asyncio.get_event_loop()
         self._event_loop.set_debug(debug)
+
+        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\npython version {sys.version}')
 
     def run(self, future):
 

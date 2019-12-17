@@ -36,7 +36,7 @@ def _json_decoder(val, *args, **kwargs):
         Utils.log.error(f'http client json decode error: {err} => {val}')
 
 
-class Response(dict):
+class Result(dict):
 
     def __init__(self, status, headers, body):
 
@@ -100,7 +100,7 @@ class _HTTPClient:
             sock_read=sock_read, sock_connect=sock_connect
         )
 
-    async def send_request(self, method, url, data=None, params=None, cookies=None, headers=None, **settings) -> Response:
+    async def send_request(self, method, url, data=None, params=None, cookies=None, headers=None, **settings) -> Result:
 
         response = None
 
@@ -139,7 +139,7 @@ class _HTTPClient:
 
                     async with _session.request(method, url, **settings) as _response:
 
-                        response = Response(
+                        response = Result(
                             _response.status,
                             dict(_response.headers),
                             await self._handle_response(_response)
@@ -149,10 +149,14 @@ class _HTTPClient:
 
             except aiohttp.ClientResponseError as err:
 
+                # 重新尝试的话，会记录异常，否则会继续抛出异常
+
                 Utils.log.error(err)
 
                 if err.status < 500:
-                    break
+                    raise err
+                elif times >= self._retry_count:
+                    raise err
                 else:
                     await self._sleep_for_retry(times)
 
@@ -160,13 +164,16 @@ class _HTTPClient:
 
                 Utils.log.error(err)
 
-                await self._sleep_for_retry(times)
+                if times >= self._retry_count:
+                    raise err
+                else:
+                    await self._sleep_for_retry(times)
 
             except Exception as err:
 
                 Utils.log.error(err)
 
-                break
+                raise err
 
             else:
 
@@ -208,45 +215,115 @@ class HTTPClient(_HTTPClient):
 
     async def get(self, url, params=None, *, cookies=None, headers=None):
 
-        response = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+        result = None
 
-        return response.body
+        try:
+
+            resp = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+
+            result = resp.body
+
+        except Exception as err:
+
+            Utils.log.error(err)
+
+        return result
 
     async def options(self, url, params=None, *, cookies=None, headers=None):
 
-        response = await self.send_request(aiohttp.hdrs.METH_OPTIONS, url, None, params, cookies=cookies, headers=headers)
+        result = None
 
-        return response.body
+        try:
+
+            resp = await self.send_request(aiohttp.hdrs.METH_OPTIONS, url, None, params, cookies=cookies, headers=headers)
+
+            result = resp.headers
+
+        except Exception as err:
+
+            Utils.log.error(err)
+
+        return result
 
     async def head(self, url, params=None, *, cookies=None, headers=None):
 
-        response = await self.send_request(aiohttp.hdrs.METH_HEAD, url, None, params, cookies=cookies, headers=headers)
+        result = None
 
-        return response.body
+        try:
+
+            resp = await self.send_request(aiohttp.hdrs.METH_HEAD, url, None, params, cookies=cookies, headers=headers)
+
+            result = resp.headers
+
+        except Exception as err:
+
+            Utils.log.error(err)
+
+        return result
 
     async def post(self, url, data=None, params=None, *, cookies=None, headers=None):
 
-        response = await self.send_request(aiohttp.hdrs.METH_POST, url, data, params, cookies=cookies, headers=headers)
+        result = None
 
-        return response.body
+        try:
+
+            resp = await self.send_request(aiohttp.hdrs.METH_POST, url, data, params, cookies=cookies, headers=headers)
+
+            result = resp.body
+
+        except Exception as err:
+
+            Utils.log.error(err)
+
+        return result
 
     async def put(self, url, data=None, params=None, *, cookies=None, headers=None):
 
-        response = await self.send_request(aiohttp.hdrs.METH_PUT, url, data, params, cookies=cookies, headers=headers)
+        result = None
 
-        return response.body
+        try:
+
+            resp = await self.send_request(aiohttp.hdrs.METH_PUT, url, data, params, cookies=cookies, headers=headers)
+
+            result = resp.body
+
+        except Exception as err:
+
+            Utils.log.error(err)
+
+        return result
 
     async def patch(self, url, data=None, params=None, *, cookies=None, headers=None):
 
-        response = await self.send_request(aiohttp.hdrs.METH_PATCH, url, data, params, cookies=cookies, headers=headers)
+        result = None
 
-        return response.body
+        try:
+
+            resp = await self.send_request(aiohttp.hdrs.METH_PATCH, url, data, params, cookies=cookies, headers=headers)
+
+            result = resp.body
+
+        except Exception as err:
+
+            Utils.log.error(err)
+
+        return result
 
     async def delete(self, url, params=None, *, cookies=None, headers=None):
 
-        response = await self.send_request(aiohttp.hdrs.METH_DELETE, url, None, params, cookies=cookies, headers=headers)
+        result = None
 
-        return response.body
+        try:
+
+            resp = await self.send_request(aiohttp.hdrs.METH_DELETE, url, None, params, cookies=cookies, headers=headers)
+
+            result = resp.body
+
+        except Exception as err:
+
+            Utils.log.error(err)
+
+        return result
 
 
 class HTTPTextClient(_HTTPTextMixin, HTTPClient):
@@ -373,9 +450,19 @@ class Downloader(_HTTPClient):
 
     async def fetch(self, url, *, params=None, cookies=None, headers=None):
 
-        response = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+        result = None
 
-        return response.body
+        try:
+
+            resp = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+
+            result = bool(resp)
+
+        except Exception as err:
+
+            Utils.log.error(err)
+
+        return result
 
 
 class DownloadBuffer(Downloader):
@@ -423,6 +510,16 @@ class DownloadBuffer(Downloader):
 
     async def fetch(self, url, *, params=None, cookies=None, headers=None):
 
-        response = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+        result = None
 
-        return bool(response)
+        try:
+
+            resp = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+
+            result = bool(resp)
+
+        except Exception as err:
+
+            Utils.log.error(err)
+
+        return result

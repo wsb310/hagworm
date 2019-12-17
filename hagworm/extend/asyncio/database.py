@@ -13,7 +13,7 @@ from sqlalchemy.sql.dml import Insert, Update, Delete
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from .base import Utils, WeakContextVar, AsyncContextManager
+from .base import Utils, WeakContextVar, AsyncContextManager, AsyncCirculator
 
 
 MYSQL_POLL_WATER_LEVEL_WARNING_LINE = 8
@@ -205,11 +205,13 @@ class MySQLDelegate:
             async with self.get_db_client() as _client:
                 _proxy = await _client.execute(r'select version();')
                 result = bool(await _proxy.cursor.fetchone())
+                await _proxy.close()
 
         if self._mysql_ro_pool:
             async with self.get_db_client(True) as _client:
                 _proxy = await _client.execute(r'select version();')
                 result &= bool(await _proxy.cursor.fetchone())
+                await _proxy.close()
 
         return result
 
@@ -483,7 +485,7 @@ class DBClient(_ClientBase, AsyncContextManager):
 
         async with self._lock:
 
-            for _ in range(0xff):
+            async for _ in AsyncCirculator(1):
 
                 try:
 
@@ -491,21 +493,23 @@ class DBClient(_ClientBase, AsyncContextManager):
 
                     result = await conn.execute(clause)
 
-                    break
-
                 except (Warning, DataError, IntegrityError, ProgrammingError) as err:
 
-                    await self._close_conn(True)
-
                     Utils.log.exception(err)
+
+                    await self._close_conn(True)
 
                     break
 
                 except Exception as err:
 
+                    Utils.log.exception(err)
+
                     await self._close_conn(True)
 
-                    Utils.log.exception(err)
+                else:
+
+                    break
 
         return result
 
