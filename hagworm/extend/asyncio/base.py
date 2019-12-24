@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import sys
 import types
 import weakref
 import inspect
@@ -46,7 +45,7 @@ class Launcher:
         self._event_loop = asyncio.get_event_loop()
         self._event_loop.set_debug(debug)
 
-        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\npython version {sys.version}')
+        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\n{Utils.environment()}')
 
     def run(self, future):
 
@@ -443,16 +442,16 @@ class QueueTasks(MultiTasks):
 class AsyncCirculator:
     """异步循环器
 
-    提供一个循环体内的代码重复执行管理逻辑，可控制执行间隔和超时时间
+    提供一个循环体内的代码重复执行管理逻辑，可控制超时时间、执行间隔(LoopFrame)和最大执行次数
 
-    for index in AsyncCirculator():
+    async for index in AsyncCirculator():
         pass
 
     其中index为执行次数，从1开始
 
     """
 
-    def __init__(self, timeout=0, interval=10):
+    def __init__(self, timeout=0, interval=10, max_times=0):
 
         if timeout > 0:
             self._expire_time = Utils.loop_time() + timeout
@@ -460,6 +459,7 @@ class AsyncCirculator:
             self._expire_time = 0
 
         self._interval = interval
+        self._max_times = max_times
 
         self._current = 0
 
@@ -471,14 +471,32 @@ class AsyncCirculator:
 
         if self._current > 0:
 
-            if self._expire_time > 0 and self._expire_time < Utils.loop_time():
+            if (self._max_times > 0) and (self._max_times <= self._current):
                 raise StopAsyncIteration()
 
-            await Utils.wait_frame(self._interval)
+            if (self._expire_time > 0) and (self._expire_time <= Utils.loop_time()):
+                raise StopAsyncIteration()
+
+            await self._sleep()
 
         self._current += 1
 
         return self._current
+
+    async def _sleep(self):
+
+        await Utils.wait_frame(self._interval)
+
+
+class AsyncCirculatorForSecond(AsyncCirculator):
+
+    def __init__(self, timeout=0, interval=1, max_times=0):
+
+        super().__init__(timeout, interval, max_times)
+
+    async def _sleep(self):
+
+        await Utils.sleep(self._interval)
 
 
 class AsyncContextManager:
@@ -492,17 +510,17 @@ class AsyncContextManager:
 
         return self
 
-    async def __aexit__(self, *args):
+    async def __aexit__(self, exc_type, exc_value, traceback):
 
         await self._context_release()
 
-        if args[0] is base.Ignore:
+        if exc_type is base.Ignore:
 
-            return True
+            return not exc_value.throw()
 
-        elif args[1]:
+        elif exc_value:
 
-            Utils.log.exception(args[1])
+            Utils.log.exception(exc_value)
 
             return True
 
@@ -522,6 +540,21 @@ class FuncWrapper(base.FuncWrapper):
 
         for func in self._callables:
             Utils.call_soon(func, *args, **kwargs)
+
+
+class AsyncConstructor:
+    """实现了__ainit__异步构造函数
+    """
+
+    def __await__(self):
+
+        yield from self.__ainit__().__await__()
+
+        return self
+
+    async def __ainit__(self):
+
+        raise NotImplementedError()
 
 
 class AsyncFuncWrapper(base.FuncWrapper):

@@ -182,8 +182,8 @@ class MySQLDelegate:
 
         context_uuid = Utils.uuid1()
 
-        self._mysql_rw_context = WeakContextVar(f'mysql_rw_client_{context_uuid}')
-        self._mysql_ro_context = WeakContextVar(f'mysql_ro_client_{context_uuid}')
+        self._mysql_rw_client_context = WeakContextVar(f'mysql_rw_client_{context_uuid}')
+        self._mysql_ro_client_context = WeakContextVar(f'mysql_ro_client_{context_uuid}')
 
     async def async_init_mysql_rw(self, *args, **kwargs):
 
@@ -234,12 +234,12 @@ class MySQLDelegate:
 
             if readonly:
 
-                _client = self._mysql_rw_context.get()
+                _client = self._mysql_rw_client_context.get()
 
                 if _client is not None:
                     Utils.create_task(_client.release())
 
-                client = self._mysql_ro_context.get()
+                client = self._mysql_ro_client_context.get()
 
                 if client is None:
 
@@ -249,31 +249,31 @@ class MySQLDelegate:
                         client = self._mysql_rw_pool.get_client()
                         client._readonly = True
 
-                    self._mysql_ro_context.set(client)
+                    self._mysql_ro_client_context.set(client)
 
             else:
 
-                _client = self._mysql_ro_context.get()
+                _client = self._mysql_ro_client_context.get()
 
                 if _client is not None:
                     Utils.create_task(_client.release())
 
-                client = self._mysql_rw_context.get()
+                client = self._mysql_rw_client_context.get()
 
                 if client is None:
                     client = self._mysql_rw_pool.get_client()
-                    self._mysql_rw_context.set(client)
+                    self._mysql_rw_client_context.set(client)
 
         return client
 
     def get_db_transaction(self):
 
-        _client = self._mysql_rw_context.get()
+        _client = self._mysql_rw_client_context.get()
 
         if _client is not None:
             Utils.create_task(_client.release())
 
-        _client = self._mysql_ro_context.get()
+        _client = self._mysql_ro_client_context.get()
 
         if _client is not None:
             Utils.create_task(_client.release())
@@ -485,7 +485,7 @@ class DBClient(_ClientBase, AsyncContextManager):
 
         async with self._lock:
 
-            async for _ in AsyncCirculator(1):
+            async for _ in AsyncCirculator(max_times=0x1f):
 
                 try:
 

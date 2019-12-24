@@ -201,11 +201,14 @@ class SocketBaseHandler(WebSocketHandler, _BaseHandlerMixin):
     """WebSocket请求处理类
     """
 
-    def __init__(self, application, request, **kwargs):
+    def initialize(self, **kwargs):
 
-        WebSocketHandler.__init__(self, application, request)
+        setattr(self, r'_payload', kwargs)
 
-        self._payload = kwargs
+    @property
+    def payload(self):
+
+        return getattr(self, r'_payload', None)
 
     def check_origin(self, origin):
 
@@ -216,17 +219,20 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
     """Http请求处理类
     """
 
-    def __init__(self, application, request, **kwargs):
+    def initialize(self, **kwargs):
 
-        RequestHandler.__init__(self, application, request)
+        setattr(self, r'_payload', kwargs)
 
-        self._payload = kwargs
+    @property
+    def payload(self):
 
-    def head(self, *_, **__):
+        return getattr(self, r'_payload', None)
+
+    def head(self, *_1, **_2):
 
         self.finish()
 
-    def options(self, *_, **__):
+    def options(self, *_1, **_2):
 
         self.finish()
 

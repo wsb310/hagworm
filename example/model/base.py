@@ -82,9 +82,9 @@ class _ModelBase(Singleton, Utils):
         self._event_dispatcher = self._data_source.event_dispatcher(r'channel_test', 5)
         self._event_dispatcher.add_listener(r'event_test', self._event_listener)
 
-    def Break(self, msg=None):
+    def Break(self, data=None, layers=1):
 
-        raise Ignore(msg)
+        raise Ignore(data, layers)
 
     async def dispatch_event(self, *args):
 

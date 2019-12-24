@@ -2,6 +2,8 @@
 
 import os
 import re
+import sys
+import platform
 import uuid
 import time
 import math
@@ -68,6 +70,11 @@ class Utils:
 
     randint = staticmethod(random.randint)
     randstr = staticmethod(random.sample)
+
+    @classmethod
+    def environment(cls):
+
+        return f'python version {sys.version}\nsystem version {platform.uname().version}'
 
     @classmethod
     def utf8(cls, val):
@@ -827,10 +834,20 @@ class Ignore(Exception):
 
     """
 
-    def __init__(self, msg=None):
+    def __init__(self, data=None, layers=1):
 
-        if msg:
-            Utils.log.warning(msg)
+        self._data = data
+        self._layers = layers
+
+        if self._data:
+            Utils.log.warning(self._data)
+
+    def throw(self):
+
+        if self._layers > 0:
+            self._layers -= 1
+
+        return self._layers > 0
 
 
 @contextmanager
@@ -845,9 +862,10 @@ def catch_error():
 
         yield
 
-    except Ignore:
+    except Ignore as err:
 
-        pass
+        if err.throw():
+            raise err
 
     except Exception as err:
 
@@ -865,17 +883,17 @@ class ContextManager:
 
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc_type, exc_value, traceback):
 
         self._context_release()
 
-        if args[0] is Ignore:
+        if exc_type is Ignore:
 
-            return True
+            return not exc_value.throw()
 
-        elif args[1]:
+        elif exc_value:
 
-            Utils.log.exception(args[1])
+            Utils.log.exception(exc_value)
 
             return True
 

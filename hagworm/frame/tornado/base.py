@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import sys
 import signal
 import asyncio
 import logging
@@ -91,7 +90,7 @@ class _LauncherBase(TaskInterface):
 
         logging.getLogger(None).addHandler(_InterceptHandler())
 
-        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\npython version {sys.version}')
+        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\n{Utils.environment()}')
 
     def start(self):
 

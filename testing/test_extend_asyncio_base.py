@@ -2,15 +2,62 @@
 
 import pytest
 
+from hagworm.extend.base import Ignore
 from hagworm.extend.asyncio.base import Utils, MultiTasks, SliceTasks, QueueTasks, ShareFuture, async_adapter
-from hagworm.extend.asyncio.base import FutureWithTimeout, AsyncCirculator, AsyncContextManager, AsyncFuncWrapper
-from hagworm.extend.asyncio.base import Transaction, FuncCache
+from hagworm.extend.asyncio.base import FutureWithTimeout, AsyncConstructor, AsyncCirculator, AsyncCirculatorForSecond
+from hagworm.extend.asyncio.base import AsyncContextManager, AsyncFuncWrapper, Transaction, FuncCache
 
 
 pytestmark = pytest.mark.asyncio
 
 
 class TestUtils:
+
+    async def test_context_manager_1(self):
+
+        class _ContextManager(AsyncContextManager):
+            async def _context_release(self):
+                pass
+
+        result = False
+
+        try:
+
+            async with _ContextManager():
+                raise Ignore()
+
+            result = True
+
+        except Ignore:
+
+            result = False
+
+        return result
+
+    async def test_context_manager_2(self):
+
+        class _ContextManager(AsyncContextManager):
+            async def _context_release(self):
+                pass
+
+        result = False
+
+        try:
+
+            async with _ContextManager():
+
+                async with _ContextManager():
+                    raise Ignore(layers=2)
+
+                result = False
+
+            result = True
+
+        except Ignore:
+
+            result = False
+
+        return result
 
     async def test_multi_tasks_and_share_future(self):
 
@@ -99,7 +146,22 @@ class TestUtils:
 
         assert Utils.math.floor(time2 - time1) == 8
 
-    async def test_async_circulator(self):
+    async def test_Async_Constructor(self):
+
+        result = False
+
+        class _Temp(AsyncConstructor):
+
+            async def __ainit__(self):
+                nonlocal result
+                result = True
+
+        temp = await _Temp()
+
+        assert isinstance(temp, _Temp)
+        assert result
+
+    async def test_async_circulator_1(self):
 
         time1 = Utils.loop_time()
 
@@ -109,6 +171,38 @@ class TestUtils:
         time2 = Utils.loop_time()
 
         assert Utils.math.floor(time2 - time1) == 1
+
+    async def test_async_circulator_2(self):
+
+        async for index in AsyncCirculator(0, 0xff, 0xff):
+            pass
+        else:
+            assert index == 0xff
+
+    async def test_async_circulator_for_second_1(self):
+
+        time1 = Utils.loop_time()
+
+        async for index in AsyncCirculatorForSecond(1, 0.1):
+            pass
+
+        time2 = Utils.loop_time()
+
+        assert (index >= 9) and (index <= 11)
+        assert Utils.math.floor(time2 - time1) == 1
+
+    async def test_async_circulator_for_second_2(self):
+
+        time1 = Utils.loop_time()
+
+        async for index in AsyncCirculatorForSecond(0, 0.1, 10):
+            pass
+        else:
+            assert index == 10
+
+        time2 = Utils.loop_time()
+
+        assert (time2 - time1 >= 0.9) and (time2 - time1 <= 1.1)
 
     async def test_async_context_manager(self):
 

@@ -12,11 +12,12 @@ from hagworm.extend.struct import FileBuffer
 from .base import Utils
 
 
-class _STATE(Enum):
+class STATE(Enum):
 
     PENDING = 0x00
     FETCHING = 0x01
-    FINISHED = 0x02
+    SUCCESS = 0x02
+    FAILURE = 0x03
 
 
 _DEFAULT_TIMEOUT = aiohttp.client.ClientTimeout(total=60, connect=10, sock_read=60, sock_connect=10)
@@ -401,7 +402,7 @@ class Downloader(_HTTPClient):
 
         self._file = file
 
-        self._state = _STATE.PENDING
+        self._state = STATE.PENDING
 
         self._response = None
 
@@ -410,9 +411,14 @@ class Downloader(_HTTPClient):
         return await Utils.sleep(2 ** times)
 
     @property
+    def state(self):
+
+        return self._state
+
+    @property
     def finished(self):
 
-        return self._state == _STATE.FINISHED
+        return self._state in (STATE.SUCCESS, STATE.FAILURE)
 
     @property
     def response(self):
@@ -421,42 +427,47 @@ class Downloader(_HTTPClient):
 
     async def _handle_response(self, response):
 
-        if self._state != _STATE.PENDING:
-            return False
+        if self._state != STATE.PENDING:
+            return
 
-        result = False
-
-        self._state = _STATE.FETCHING
+        self._state = STATE.FETCHING
         self._response = response
 
         with open(self._file, r'wb') as stream:
 
-            while True:
+            try:
 
-                chunk = await response.content.read(65536)
+                while True:
 
-                if chunk:
-                    stream.write(chunk)
-                else:
-                    result = bool(response.status == 200)
-                    break
+                    chunk = await response.content.read(65536)
 
-        if not result and os.path.exists(self._file):
+                    if chunk:
+                        stream.write(chunk)
+                    else:
+                        break
+
+            except Exception as err:
+
+                Utils.log.error(err)
+
+                self._state = STATE.FAILURE
+
+            else:
+
+                self._state = STATE.SUCCESS
+
+        if self._state != STATE.SUCCESS and os.path.exists(self._file):
             os.remove(self._file)
-
-        self._state = _STATE.FINISHED
-
-        return result
 
     async def fetch(self, url, *, params=None, cookies=None, headers=None):
 
-        result = None
+        result = False
 
         try:
 
-            resp = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
+            await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
 
-            result = bool(resp)
+            result = (self._state == STATE.SUCCESS)
 
         except Exception as err:
 
@@ -480,12 +491,10 @@ class DownloadBuffer(Downloader):
 
     async def _handle_response(self, response):
 
-        if self._state != _STATE.PENDING:
-            return False
+        if self._state != STATE.PENDING:
+            return
 
-        result = False
-
-        self._state = _STATE.FETCHING
+        self._state = STATE.FETCHING
         self._response = response
 
         try:
@@ -497,29 +506,14 @@ class DownloadBuffer(Downloader):
                 if chunk:
                     self._file.write(chunk)
                 else:
-                    result = bool(response.status == 200)
                     break
 
         except Exception as err:
 
             Utils.log.error(err)
 
-        self._state = _STATE.FINISHED
+            self._state = STATE.FAILURE
 
-        return result
+        else:
 
-    async def fetch(self, url, *, params=None, cookies=None, headers=None):
-
-        result = None
-
-        try:
-
-            resp = await self.send_request(aiohttp.hdrs.METH_GET, url, None, params, cookies=cookies, headers=headers)
-
-            result = bool(resp)
-
-        except Exception as err:
-
-            Utils.log.error(err)
-
-        return result
+            self._state = STATE.SUCCESS

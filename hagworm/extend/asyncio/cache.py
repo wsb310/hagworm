@@ -46,7 +46,7 @@ class RedisPool:
         client = None
 
         if self._pool is not None:
-            client = MCache(self._pool, self._expire, self._key_prefix)
+            client = CacheClient(self._pool, self._expire, self._key_prefix)
 
         return client
 
@@ -59,7 +59,7 @@ class RedisDelegate:
 
         self._redis_pool = None
 
-        self._redis_context = WeakContextVar(f'cache_client_{Utils.uuid1()}')
+        self._cache_client_context = WeakContextVar(f'cache_client_{Utils.uuid1()}')
 
     async def async_init_redis(self, *args, **kwargs):
 
@@ -86,14 +86,14 @@ class RedisDelegate:
 
         else:
 
-            client = self._redis_context.get()
+            client = self._cache_client_context.get()
 
             if client is None:
 
                 client = self._redis_pool.get_client()
 
                 if client:
-                    self._redis_context.set(client)
+                    self._cache_client_context.set(client)
 
         return client
 
@@ -106,7 +106,7 @@ class RedisDelegate:
         return DistributedEvent(self._redis_pool, channel_name, channel_count)
 
 
-class MCache(aioredis.Redis, AsyncContextManager):
+class CacheClient(aioredis.Redis, AsyncContextManager):
     """Redis客户端对象，使用with进行上下文管理
 
     将连接委托给客户端对象管理，提高了整体连接的使用率
@@ -173,7 +173,7 @@ class MCache(aioredis.Redis, AsyncContextManager):
 
         result = None
 
-        async for _ in AsyncCirculator(1):
+        async for _ in AsyncCirculator(max_times=0x1f):
 
             try:
 
@@ -372,6 +372,13 @@ end
 
         await self.release()
 
+    async def exists(self):
+
+        if await self._cache.exists(self._lock_tag):
+            return True
+        else:
+            return False
+
     async def acquire(self, timeout=0):
 
         if self._locked:
@@ -399,15 +406,13 @@ end
 
     async def wait(self, timeout=0):
 
-        result = False
-
         async for _ in AsyncCirculator(timeout):
 
-            if not await self._cache.exists(self._lock_tag):
-                result = True
-                break
+            if not await self.exists():
+                return True
+        else:
 
-        return result
+            return False
 
     async def renew(self):
 
