@@ -5,8 +5,9 @@ import asyncio
 from crontab import CronTab
 
 from hagworm.extend.interface import TaskInterface
+from hagworm.extend.error import RateLimitError
 
-from .base import Utils
+from .base import Utils, FutureWithTask
 
 
 class _BaseTask(TaskInterface):
@@ -193,3 +194,97 @@ class CronTask(_BaseTask, CronTab):
         self._next_timeout = self._event_loop.time() + self.next(**params)
 
         return self._next_timeout
+
+
+class RateLimiter:
+
+    def __init__(self, running_limit, waiting_limit=0):
+
+        self._running_limit = running_limit
+        self._waiting_limit = waiting_limit
+
+        self._running_tasks = {}
+        self._waiting_tasks = []
+
+    async def __call__(self, func, *args, **kwargs):
+
+        future = self.append(func, *args, **kwargs)
+
+        if future is None:
+            raise RateLimitError()
+
+        return await future
+
+    def append(self, func, *args, **kwargs):
+
+        future = None
+
+        if self._check_running_limit():
+            future = FutureWithTask(func, *args, **kwargs)
+            self._add_running_tasks(future)
+        elif self._check_waiting_limit():
+            future = FutureWithTask(func, *args, **kwargs)
+            self._add_waiting_tasks(future)
+
+        return future
+
+    @property
+    def running_limit(self):
+
+        return self._running_limit
+
+    @running_limit.setter
+    def running_limit(self, val):
+
+        self._running_limit = val
+
+        self._recover_waiting_tasks()
+
+    def _check_running_limit(self):
+
+        return self._running_limit <= 0 or len(self._running_tasks) < self._running_limit
+
+    @property
+    def waiting_limit(self):
+
+        return self._waiting_limit
+
+    @waiting_limit.setter
+    def waiting_limit(self, val):
+
+        self._waiting_limit = val
+
+        if len(self._waiting_tasks) > self._waiting_limit:
+            self._waiting_tasks = self._waiting_tasks[:self._waiting_limit]
+
+    def _check_waiting_limit(self):
+
+        return self._waiting_limit <= 0 or len(self._waiting_tasks) < self._waiting_limit
+
+    def _add_running_tasks(self, future_callable):
+
+        future_callable.add_done_callback(self._done_callback)
+        self._running_tasks[future_callable.name] = future_callable
+
+        future_callable()
+
+    def _add_waiting_tasks(self, future_callable):
+
+        self._waiting_tasks.append(future_callable)
+
+    def _recover_waiting_tasks(self):
+
+        for _ in range(len(self._waiting_tasks)):
+
+            if self._check_running_limit():
+                future_callable = self._waiting_tasks.pop(0)
+                self._add_running_tasks(future_callable)
+            else:
+                break
+
+    def _done_callback(self, future_callable):
+
+        if future_callable.name in self._running_tasks:
+            self._running_tasks.pop(future_callable.name)
+
+        self._recover_waiting_tasks()

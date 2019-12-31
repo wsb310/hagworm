@@ -12,7 +12,8 @@ from .base import Utils, WeakContextVar, AsyncContextManager, AsyncCirculator
 from .event import DistributedEvent
 
 
-REDIS_POOL_WATER_LEVEL_WARNING_LINE = 8
+REDIS_ERROR_RETRY_COUNT = 0x1f
+REDIS_POOL_WATER_LEVEL_WARNING_LINE = 0x08
 
 
 class RedisPool:
@@ -171,9 +172,11 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     async def execute(self, command, *args, **kwargs):
 
+        global REDIS_ERROR_RETRY_COUNT
+
         result = None
 
-        async for _ in AsyncCirculator(max_times=0x1f):
+        async for times in AsyncCirculator(max_times=REDIS_ERROR_RETRY_COUNT):
 
             try:
 
@@ -187,13 +190,18 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
                 await self._close_conn(True)
 
-                break
+                raise err
 
             except Exception as err:
+
+                # 记录异常，如果不重新尝试会继续抛出异常
 
                 Utils.log.exception(err)
 
                 await self._close_conn(True)
+
+                if times >= REDIS_ERROR_RETRY_COUNT:
+                    raise err
 
             else:
 

@@ -9,6 +9,7 @@ from hagworm.extend.asyncio.base import AsyncContextManager, AsyncFuncWrapper, T
 
 
 pytestmark = pytest.mark.asyncio
+# pytest.skip(allow_module_level=True)
 
 
 class TestUtils:

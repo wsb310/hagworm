@@ -13,10 +13,13 @@ from sqlalchemy.sql.dml import Insert, Update, Delete
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
+from hagworm.extend.error import MySQLReadOnlyError
+
 from .base import Utils, WeakContextVar, AsyncContextManager, AsyncCirculator
 
 
-MYSQL_POLL_WATER_LEVEL_WARNING_LINE = 8
+MYSQL_ERROR_RETRY_COUNT = 0x1f
+MYSQL_POLL_WATER_LEVEL_WARNING_LINE = 0x08
 
 
 class MongoPool:
@@ -285,9 +288,6 @@ class _ClientBase:
     """MySQL客户端基类
     """
 
-    class ReadOnly(Exception):
-        pass
-
     @staticmethod
     def safestr(val):
 
@@ -371,7 +371,7 @@ class _ClientBase:
         result = 0
 
         if self._readonly:
-            raise self.ReadOnly()
+            raise MySQLReadOnlyError()
 
         if not isinstance(clause, Insert):
             raise TypeError(r'Not sqlalchemy.sql.dml.Insert object')
@@ -392,7 +392,7 @@ class _ClientBase:
         result = 0
 
         if self._readonly:
-            raise self.ReadOnly()
+            raise MySQLReadOnlyError()
 
         if not isinstance(clause, Update):
             raise TypeError(r'Not sqlalchemy.sql.dml.Update object')
@@ -413,7 +413,7 @@ class _ClientBase:
         result = 0
 
         if self._readonly:
-            raise self.ReadOnly()
+            raise MySQLReadOnlyError()
 
         if not isinstance(clause, Delete):
             raise TypeError(r'Not sqlalchemy.sql.dml.Delete object')
@@ -481,11 +481,13 @@ class DBClient(_ClientBase, AsyncContextManager):
 
     async def execute(self, clause):
 
+        global MYSQL_ERROR_RETRY_COUNT
+
         result = None
 
         async with self._lock:
 
-            async for _ in AsyncCirculator(max_times=0x1f):
+            async for times in AsyncCirculator(max_times=MYSQL_ERROR_RETRY_COUNT):
 
                 try:
 
@@ -499,13 +501,18 @@ class DBClient(_ClientBase, AsyncContextManager):
 
                     await self._close_conn(True)
 
-                    break
+                    raise err
 
                 except Exception as err:
+
+                    # 记录异常，如果不重新尝试会继续抛出异常
 
                     Utils.log.exception(err)
 
                     await self._close_conn(True)
+
+                    if times >= MYSQL_ERROR_RETRY_COUNT:
+                        raise err
 
                 else:
 

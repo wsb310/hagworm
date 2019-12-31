@@ -7,6 +7,7 @@ from hagworm.extend.base import catch_error, Ignore, ContextManager, FuncWrapper
 
 
 pytestmark = pytest.mark.asyncio
+# pytest.skip(allow_module_level=True)
 
 
 class TestUtils:

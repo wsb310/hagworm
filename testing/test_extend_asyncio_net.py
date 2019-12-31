@@ -8,6 +8,7 @@ from hagworm.extend.asyncio.net import HTTPClientPool, HTTPTextClientPool, HTTPJ
 
 
 pytestmark = pytest.mark.asyncio
+# pytest.skip(allow_module_level=True)
 
 TEST_URLS = [
     r'https://lib.sinaapp.com/js/bootstrap/4.1.3/js/bootstrap.min.js.map',

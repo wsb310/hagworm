@@ -5,12 +5,12 @@ import functools
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
-from hagworm.extend.interface import TaskInterface
+from hagworm.extend.interface import RunnableInterface, TaskInterface
 
 from .base import Utils
 
 
-class ThreadPool:
+class ThreadPool(RunnableInterface):
     """线程池，桥接线程与协程
     """
 
@@ -44,7 +44,7 @@ class ThreadWorker:
         return _wrapper
 
 
-class ProcessPool:
+class ProcessPool(RunnableInterface):
     """进程池，桥接进程与协程
     """
 

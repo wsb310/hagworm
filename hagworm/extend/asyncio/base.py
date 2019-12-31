@@ -11,9 +11,10 @@ from contextvars import Context, ContextVar
 from hagworm import package_slogan
 from hagworm import __version__ as package_version
 from hagworm.extend import base
+from hagworm.extend.interface import RunnableInterface
 
 
-class Launcher:
+class Launcher(RunnableInterface):
     """异步版本的启动器
 
     用于简化和统一程序的启动操作
@@ -293,6 +294,52 @@ class FutureWithTimeout(asyncio.Future):
         if self._timeout_handle is not None:
             self._timeout_handle.cancel()
             self._timeout_handle = None
+
+
+class FutureWithTask(asyncio.Future, RunnableInterface):
+    """Future实例可以被多个协程await，本类实现coroutine function返回future实例
+    """
+
+    def __init__(self, func, *args, **kwargs):
+
+        super().__init__()
+
+        self._name = Utils.uuid1()
+
+        if args or kwargs:
+            self._callable = Utils.func_partial(func, *args, **kwargs)
+        else:
+            self._callable = func
+
+    @property
+    def name(self):
+
+        return self._name
+
+    @name.setter
+    def name(self, val):
+
+        self._name = val
+
+    def __call__(self, *args, **kwargs):
+
+        return asyncio.create_task(self.run(*args, **kwargs))
+
+    async def run(self, *args, **kwargs):
+
+        result = None
+
+        try:
+
+            result = await self._callable(*args, **kwargs)
+
+            self.set_result(result)
+
+        except Exception as err:
+
+            self.set_exception(err)
+
+        return result
 
 
 class MultiTasks:
