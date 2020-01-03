@@ -498,7 +498,7 @@ class AsyncCirculator:
 
     """
 
-    def __init__(self, timeout=0, interval=10, max_times=0):
+    def __init__(self, timeout=0, interval=0xff, max_times=0):
 
         if timeout > 0:
             self._expire_time = Utils.loop_time() + timeout

@@ -147,7 +147,7 @@ class TestUtils:
 
         assert Utils.math.floor(time2 - time1) == 8
 
-    async def test_Async_Constructor(self):
+    async def test_async_constructor(self):
 
         result = False
 
