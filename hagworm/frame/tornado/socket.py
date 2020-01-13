@@ -129,7 +129,7 @@ class Launcher(_LauncherBase):
 
     def __init__(self, protocol, port, **kwargs):
 
-        self._initialize(**kwargs)
+        super().__init__(**kwargs)
 
         if not issubclass(protocol, Protocol):
             raise TypeError(r'Dot Implemented Protocol Interface')
@@ -148,7 +148,7 @@ class Launcher(_LauncherBase):
         AsyncIOMainLoop().install()
 
         self._event_loop = asyncio.get_event_loop()
-        self._event_loop.set_debug(kwargs.get(r'debug', False))
+        self._event_loop.set_debug(self._debug)
 
         self._server = _TCPServer(protocol, **self._settings)
 

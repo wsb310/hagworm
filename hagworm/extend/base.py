@@ -872,6 +872,39 @@ def catch_error():
         Utils.log.exception(err)
 
 
+class HeartbeatChecker:
+
+    def __init__(self, name=None, timeout=60):
+
+        self._name = name if name else Utils.uuid1()
+        self._timeout = timeout
+
+        self._heartbeat_time = 0
+
+    def __bool__(self):
+
+        return Utils.timestamp() < (self._heartbeat_time + self._timeout)
+
+    @property
+    def name(self):
+
+        return self._name
+
+    @property
+    def timeout(self):
+
+        return self._timeout
+
+    @property
+    def heartbeat_time(self):
+
+        return self._heartbeat_time
+
+    def refresh(self):
+
+        self._heartbeat_time = Utils.timestamp()
+
+
 class ContextManager:
     """上下文资源管理器
 

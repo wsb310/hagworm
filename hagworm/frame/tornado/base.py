@@ -40,7 +40,9 @@ class _LauncherBase(TaskInterface):
     """启动器基类
     """
 
-    def _initialize(self, **kwargs):
+    def __init__(self, **kwargs):
+
+        self._debug = kwargs.get(r'debug', False)
 
         self._process_num = kwargs.get(r'process_num', 1)
         self._async_initialize = kwargs.get(r'async_initialize', None)
@@ -63,34 +65,51 @@ class _LauncherBase(TaskInterface):
         else:
             raise TypeError(r'Background Process Dot Implemented Task Interface')
 
-        log_level = kwargs.get(r'log_level', r'info').upper()
-        log_file_path = kwargs.get(r'log_file_path', None)
+        self._init_logger(
+            kwargs.get(r'log_level', r'info').upper(),
+            kwargs.get(r'log_handler', None),
+            kwargs.get(r'log_file_path', None),
+            kwargs.get(r'log_file_num_backups', 7)
+        )
 
-        if log_file_path:
+        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\n{Utils.environment()}')
+
+    def _init_logger(self, log_level, log_handler=None, log_file_path=None, log_file_num_backups=7):
+
+        if log_handler or log_file_path:
 
             Utils.log.remove()
 
-            log_file_path = Utils.path.join(
-                kwargs[r'log_file_path'],
-                r'runtime_{time}.log'
-            )
+            if log_handler:
 
-            Utils.log.add(
-                sink=log_file_path,
-                level=log_level,
-                enqueue=True,
-                backtrace=kwargs.get(r'debug', False),
-                rotation=r'00:00',
-                retention=kwargs.get(r'log_file_num_backups', 7)
-            )
+                Utils.log.add(
+                    log_handler,
+                    level=log_level,
+                    enqueue=True,
+                    backtrace=self._debug
+                )
+
+            if log_file_path:
+
+                log_file_path = Utils.path.join(
+                    log_file_path,
+                    r'runtime_{time}.log'
+                )
+
+                Utils.log.add(
+                    log_file_path,
+                    level=log_level,
+                    enqueue=True,
+                    backtrace=self._debug,
+                    rotation=r'00:00',
+                    retention=log_file_num_backups
+                )
 
         else:
 
             Utils.log.level(log_level)
 
         logging.getLogger(None).addHandler(_InterceptHandler())
-
-        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\n{Utils.environment()}')
 
     def start(self):
 
@@ -134,11 +153,11 @@ class Launcher(_LauncherBase):
 
     def __init__(self, router, port=80, **kwargs):
 
-        self._initialize(**kwargs)
+        super().__init__(**kwargs)
 
         self._settings = {
             r'handlers': router,
-            r'debug': kwargs.get(r'debug', False),
+            r'debug': self._debug,
             r'gzip': kwargs.get(r'gzip', False),
             r'log_function': self._log_request,
         }

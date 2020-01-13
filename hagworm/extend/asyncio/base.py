@@ -31,7 +31,7 @@ class Launcher(RunnableInterface):
             )
 
             Utils.log.add(
-                sink=_log_file_path,
+                _log_file_path,
                 level=log_level,
                 enqueue=True,
                 backtrace=debug,
