@@ -32,7 +32,7 @@ import xmltodict
 import xml.dom.minidom
 
 from datetime import datetime, timedelta
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 from collections import Iterable, OrderedDict
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -316,6 +316,17 @@ class Utils:
                     return iterable[index]
 
         return cls.random.choice(iterable)
+
+    @classmethod
+    def get_host_ip(cls):
+
+        result = None
+
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as _socket:
+            _socket.connect((r'8.8.8.8', 53))
+            result = _socket.getsockname()[0]
+
+        return result
 
     @classmethod
     def ip2int(cls, val):
