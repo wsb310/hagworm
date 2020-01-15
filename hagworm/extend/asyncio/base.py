@@ -46,7 +46,14 @@ class Launcher(RunnableInterface):
         self._event_loop = asyncio.get_event_loop()
         self._event_loop.set_debug(debug)
 
-        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\n{Utils.environment()}')
+        environment = Utils.environment()
+
+        Utils.log.info(
+            f'{package_slogan}'
+            f'hagworm {package_version}\n'
+            f'python {environment["python"]}\n'
+            f'system {" ".join(environment["system"])}'
+        )
 
     def run(self, future):
 

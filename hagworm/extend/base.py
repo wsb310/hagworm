@@ -74,7 +74,10 @@ class Utils:
     @classmethod
     def environment(cls):
 
-        return f'python version {sys.version}\nsystem version {platform.uname().version}'
+        return {
+            r'python': sys.version,
+            r'system': [platform.system(), platform.release(), platform.version(), platform.machine()],
+        }
 
     @classmethod
     def utf8(cls, val):

@@ -72,7 +72,14 @@ class _LauncherBase(TaskInterface):
             kwargs.get(r'log_file_num_backups', 7)
         )
 
-        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\n{Utils.environment()}')
+        environment = Utils.environment()
+
+        Utils.log.info(
+            f'{package_slogan}'
+            f'hagworm {package_version}\n'
+            f'python {environment["python"]}\n'
+            f'system {" ".join(environment["system"])}'
+        )
 
     def _init_logger(self, log_level, log_handler=None, log_file_path=None, log_file_num_backups=7):
 
