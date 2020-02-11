@@ -83,22 +83,40 @@ class SubProcess(TaskInterface):
     """
 
     @classmethod
-    def create(cls, cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE):
+    def create(cls, program, *args, **kwargs):
 
-        process = cls(cmd, stdout=stdout, stderr=stderr)
+        process = cls(program, *args, **kwargs)
         process.start()
 
         return process
 
-    def __init__(self, commend, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE):
+    def __init__(self, program, *args, **kwargs):
 
-        self._commend = commend
+        self._program = program
+        self._args = args
+        self._kwargs = kwargs
 
-        self._stdout = stdout
-        self._stderr = stderr
+        self._stdin = kwargs.pop(r'stdin') if r'stdin' in kwargs else None
+        self._stdout = kwargs.pop(r'stdout') if r'stdout' in kwargs else asyncio.subprocess.PIPE
+        self._stderr = kwargs.pop(r'stderr') if r'stderr' in kwargs else asyncio.subprocess.PIPE
 
         self._process = None
         self._process_id = None
+
+    @property
+    def stdin(self):
+
+        return self._stdin
+
+    @property
+    def stdout(self):
+
+        return self._stdout
+
+    @property
+    def stderr(self):
+
+        return self._stderr
 
     def is_running(self):
 
@@ -109,10 +127,12 @@ class SubProcess(TaskInterface):
         if self._process is not None:
             return False
 
-        self._process = await asyncio.create_subprocess_shell(
-            self._commend,
+        self._process = await asyncio.create_subprocess_exec(
+            self._program, *self._args,
+            stdin=self._stdin,
             stdout=self._stdout,
-            stderr=self._stderr
+            stderr=self._stderr,
+            **self._kwargs
         )
 
         self._process_id = self._process.pid
@@ -128,7 +148,7 @@ class SubProcess(TaskInterface):
 
         return True
 
-    async def wait(self, timeout=0):
+    async def wait(self, timeout=None):
 
         try:
 
