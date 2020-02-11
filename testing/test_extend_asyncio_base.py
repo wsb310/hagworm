@@ -5,7 +5,7 @@ import pytest
 from hagworm.extend.base import Ignore
 from hagworm.extend.asyncio.base import Utils, MultiTasks, SliceTasks, QueueTasks, ShareFuture, async_adapter
 from hagworm.extend.asyncio.base import FutureWithTimeout, AsyncConstructor, AsyncCirculator, AsyncCirculatorForSecond
-from hagworm.extend.asyncio.base import AsyncContextManager, AsyncFuncWrapper, Transaction, FuncCache
+from hagworm.extend.asyncio.base import AsyncContextManager, AsyncFuncWrapper, Transaction, FuncCache, TimeDiff
 
 
 pytestmark = pytest.mark.asyncio
@@ -95,20 +95,18 @@ class TestUtils:
 
     async def test_future_with_timeout(self):
 
-        time1 = Utils.loop_time()
+        time_diff = TimeDiff()
 
         await FutureWithTimeout(1)
 
-        time2 = Utils.loop_time()
-
-        assert Utils.math.floor(time2 - time1) == 1
+        assert Utils.math.floor(time_diff.check()[0]) == 1
 
     async def test_slice_tasks(self):
 
         async def _do_acton():
             await Utils.sleep(1)
 
-        time1 = Utils.loop_time()
+        time_diff = TimeDiff()
 
         tasks = SliceTasks(3)
 
@@ -117,16 +115,14 @@ class TestUtils:
 
         await tasks
 
-        time2 = Utils.loop_time()
-
-        assert Utils.math.floor(time2 - time1) == 4
+        assert Utils.math.floor(time_diff.check()[0]) == 4
 
     async def test_queue_tasks(self):
 
         async def _do_acton(val):
             await Utils.sleep(val)
 
-        time1 = Utils.loop_time()
+        time_diff = TimeDiff()
 
         tasks = QueueTasks(5)
 
@@ -143,9 +139,7 @@ class TestUtils:
 
         await tasks
 
-        time2 = Utils.loop_time()
-
-        assert Utils.math.floor(time2 - time1) == 8
+        assert Utils.math.floor(time_diff.check()[0]) == 8
 
     async def test_async_constructor(self):
 
@@ -164,14 +158,12 @@ class TestUtils:
 
     async def test_async_circulator_1(self):
 
-        time1 = Utils.loop_time()
+        time_diff = TimeDiff()
 
         async for _ in AsyncCirculator(1, 0xff):
             pass
 
-        time2 = Utils.loop_time()
-
-        assert Utils.math.floor(time2 - time1) == 1
+        assert Utils.math.floor(time_diff.check()[0]) == 1
 
     async def test_async_circulator_2(self):
 
@@ -182,28 +174,26 @@ class TestUtils:
 
     async def test_async_circulator_for_second_1(self):
 
-        time1 = Utils.loop_time()
+        time_diff = TimeDiff()
 
         async for index in AsyncCirculatorForSecond(1, 0.1):
             pass
 
-        time2 = Utils.loop_time()
-
         assert (index >= 9) and (index <= 11)
-        assert Utils.math.floor(time2 - time1) == 1
+        assert Utils.math.floor(time_diff.check()[0]) == 1
 
     async def test_async_circulator_for_second_2(self):
 
-        time1 = Utils.loop_time()
+        time_diff = TimeDiff()
 
         async for index in AsyncCirculatorForSecond(0, 0.1, 10):
             pass
         else:
             assert index == 10
 
-        time2 = Utils.loop_time()
+        check_time = time_diff.check()[0]
 
-        assert (time2 - time1 >= 0.9) and (time2 - time1 <= 1.1)
+        assert (check_time >= 0.9) and (check_time <= 1.1)
 
     async def test_async_context_manager(self):
 

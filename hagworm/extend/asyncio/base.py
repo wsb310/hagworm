@@ -782,3 +782,21 @@ class ShareFuture:
 
         for future in futures:
             future.set_result(Utils.deepcopy(result))
+
+
+class TimeDiff:
+
+    def __init__(self):
+
+        self._start_time = self._last_check_time = Utils.loop_time()
+
+    def check(self):
+
+        now_time = Utils.loop_time()
+
+        diff_time_1 = now_time - self._start_time
+        diff_time_2 = now_time - self._last_check_time
+
+        self._last_check_time = now_time
+
+        return diff_time_1, diff_time_2

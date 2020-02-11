@@ -2,7 +2,7 @@
 
 import pytest
 
-from hagworm.extend.asyncio.base import Utils
+from hagworm.extend.asyncio.base import Utils, TimeDiff
 from hagworm.extend.asyncio.task import RateLimiter
 
 
@@ -19,13 +19,11 @@ class TestHTTPClient:
 
         limiter = RateLimiter(2, 1)
 
-        time1 = Utils.loop_time()
+        time_diff = TimeDiff()
 
         limiter.append(_temp)
         limiter.append(_temp)
 
         await limiter(_temp)
 
-        time2 = Utils.loop_time()
-
-        assert Utils.math.floor(time2 - time1) == 2
+        assert Utils.math.floor(time_diff.check()[0]) == 2
