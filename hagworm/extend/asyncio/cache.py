@@ -36,11 +36,13 @@ class RedisPool:
 
         self._settings[r'db'] = db
 
-    async def initialize(self):
+    def __await__(self):
 
-        self._pool = await aioredis.create_pool(**self._settings)
+        self._pool = yield from aioredis.create_pool(**self._settings).__await__()
 
         Utils.log.info(f"Redis {self._settings[r'address']} initialized")
+
+        return self
 
     def get_client(self):
 
@@ -64,9 +66,7 @@ class RedisDelegate:
 
     async def async_init_redis(self, *args, **kwargs):
 
-        self._redis_pool = RedisPool(*args, **kwargs)
-
-        await self._redis_pool.initialize()
+        self._redis_pool = await RedisPool(*args, **kwargs)
 
     async def cache_health(self):
 

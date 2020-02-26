@@ -89,6 +89,17 @@ class MySQLPool:
 
     class _Connection(SAConnection):
 
+        def __init__(self, *args, **kwargs):
+
+            super().__init__(*args, **kwargs)
+
+            self._build_time = Utils.loop_time()
+
+        @property
+        def build_time(self):
+
+            return self._build_time
+
         async def destroy(self):
 
             if self._connection is None:
@@ -104,11 +115,20 @@ class MySQLPool:
             self._connection = None
             self._engine = None
 
-    def __init__(self, host, port, db, user, password, *, minsize=8, maxsize=32, charset=r'utf8', autocommit=True, cursorclass=aiomysql.DictCursor, readonly=False, **settings):
+    def __init__(
+            self, host, port, db, user, password,
+            *, name=None, minsize=8, maxsize=32, pool_recycle=21600,
+            charset=r'utf8', autocommit=True, cursorclass=aiomysql.DictCursor,
+            debug=False, readonly=False, conn_life=43200,
+            **settings
+    ):
 
+        self._name = name if name is not None else (Utils.uuid1()[:8] + (r'_ro' if readonly else r'_rw'))
         self._pool = None
         self._engine = None
+        self._debug = debug
         self._readonly = readonly
+        self._conn_life = conn_life
 
         self._settings = settings
 
@@ -122,21 +142,44 @@ class MySQLPool:
         self._settings[r'minsize'] = minsize
         self._settings[r'maxsize'] = maxsize
 
+        self._settings[r'pool_recycle'] = pool_recycle
         self._settings[r'charset'] = charset
         self._settings[r'autocommit'] = autocommit
         self._settings[r'cursorclass'] = cursorclass
 
-    async def initialize(self):
+        self._settings.setdefault(r'echo', self._debug)
 
-        self._pool = await aiomysql.create_pool(**self._settings)
+    @property
+    def name(self):
+
+        return self._name
+
+    @property
+    def debug(self):
+
+        return self._debug
+
+    @property
+    def readonly(self):
+
+        return self._readonly
+
+    @property
+    def conn_life(self):
+
+        return self._conn_life
+
+    def __await__(self):
+
+        self._pool = yield from aiomysql.create_pool(**self._settings).__await__()
         self._engine = Engine(dialect, self._pool)
 
         Utils.log.info(
-            r'MySQL {0}:{1} {2}({3}) initialized'.format(
-                self._settings[r'host'], self._settings[r'port'], self._settings[r'db'],
-                r'ro' if self._readonly else r'rw'
-            )
+            f"MySQL {self._settings[r'host']}:{self._settings[r'port']} {self._settings[r'db']}"
+            f" ({self._name}) initialized: {self._pool.size}/{self._pool.maxsize}"
         )
+
+        return self
 
     async def get_sa_conn(self):
 
@@ -144,7 +187,11 @@ class MySQLPool:
 
         if self._pool.freesize < MYSQL_POLL_WATER_LEVEL_WARNING_LINE:
             Utils.log.warning(
-                f'MySQL connection pool not enough: {self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+                f'MySQL connection pool not enough ({self._name}): {self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+            )
+        elif self._debug:
+            Utils.log.warning(
+                f'MySQL connection pool info ({self._name}): {self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
             )
 
         conn = await self._pool.acquire()
@@ -156,7 +203,7 @@ class MySQLPool:
         result = None
 
         try:
-            result = DBClient(self, self._readonly)
+            result = DBClient(self)
         except Exception as err:
             Utils.log.exception(err)
 
@@ -165,6 +212,9 @@ class MySQLPool:
     def get_transaction(self):
 
         result = None
+
+        if self._readonly:
+            raise MySQLReadOnlyError()
 
         try:
             result = DBTransaction(self)
@@ -190,15 +240,11 @@ class MySQLDelegate:
 
     async def async_init_mysql_rw(self, *args, **kwargs):
 
-        self._mysql_rw_pool = MySQLPool(*args, **kwargs)
-
-        await self._mysql_rw_pool.initialize()
+        self._mysql_rw_pool = await MySQLPool(*args, **kwargs)
 
     async def async_init_mysql_ro(self, *args, **kwargs):
 
-        self._mysql_ro_pool = MySQLPool(*args, **kwargs)
-
-        await self._mysql_ro_pool.initialize()
+        self._mysql_ro_pool = await MySQLPool(*args, **kwargs)
 
     async def mysql_health(self):
 
@@ -437,9 +483,9 @@ class DBClient(_ClientBase, AsyncContextManager):
 
     """
 
-    def __init__(self, pool, readonly):
+    def __init__(self, pool):
 
-        super().__init__(readonly)
+        super().__init__(pool.readonly)
 
         self._lock = asyncio.Lock()
 
@@ -465,6 +511,8 @@ class DBClient(_ClientBase, AsyncContextManager):
             _conn, self._conn = self._conn, None
 
             if discard:
+                await _conn.destroy()
+            elif (Utils.loop_time() - _conn.build_time) > self._pool.conn_life:
                 await _conn.destroy()
             else:
                 await _conn.close()
@@ -530,7 +578,7 @@ class DBTransaction(DBClient):
 
     def __init__(self, pool):
 
-        super().__init__(pool, False)
+        super().__init__(pool)
 
         self._trx = None
 
@@ -553,6 +601,9 @@ class DBTransaction(DBClient):
     async def execute(self, clause):
 
         result = None
+
+        if self._readonly:
+            raise MySQLReadOnlyError()
 
         async with self._lock:
 
