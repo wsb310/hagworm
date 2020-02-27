@@ -41,7 +41,7 @@ class DataSource(Singleton, RedisDelegate, MongoDelegate, MySQLDelegate):
                 ConfigStatic.MySqlMasterServer[0], ConfigStatic.MySqlMasterServer[1], ConfigStatic.MySqlName,
                 ConfigStatic.MySqlUser, ConfigStatic.MySqlPasswd,
                 minsize=ConfigStatic.MySqlMasterMinConn, maxsize=ConfigStatic.MySqlMasterMaxConn,
-                pool_recycle=21600, debug=ConfigDynamic.Debug, conn_life=43200
+                echo=ConfigDynamic.Debug, pool_recycle=21600, conn_life=43200
             )
 
         if ConfigStatic.MySqlSlaveServer:
@@ -50,7 +50,7 @@ class DataSource(Singleton, RedisDelegate, MongoDelegate, MySQLDelegate):
                 ConfigStatic.MySqlSlaveServer[0], ConfigStatic.MySqlSlaveServer[1], ConfigStatic.MySqlName,
                 ConfigStatic.MySqlUser, ConfigStatic.MySqlPasswd,
                 minsize=ConfigStatic.MySqlSlaveMinConn, maxsize=ConfigStatic.MySqlSlaveMaxConn,
-                pool_recycle=21600, debug=ConfigDynamic.Debug, readonly=True, conn_life=43200
+                echo=ConfigDynamic.Debug, pool_recycle=21600, readonly=True, conn_life=43200
             )
 
     @FuncCache()

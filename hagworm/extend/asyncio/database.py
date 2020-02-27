@@ -89,16 +89,17 @@ class MySQLPool:
 
     class _Connection(SAConnection):
 
-        def __init__(self, *args, **kwargs):
+        def __init__(self, connection, engine, compiled_cache=None):
 
-            super().__init__(*args, **kwargs)
+            super().__init__(connection, engine, compiled_cache)
 
-            self._build_time = Utils.loop_time()
+            if not hasattr(connection, r'build_time'):
+                setattr(connection, r'build_time', Utils.loop_time())
 
         @property
         def build_time(self):
 
-            return self._build_time
+            return getattr(self._connection, r'build_time', 0)
 
         async def destroy(self):
 
@@ -117,16 +118,15 @@ class MySQLPool:
 
     def __init__(
             self, host, port, db, user, password,
-            *, name=None, minsize=8, maxsize=32, pool_recycle=21600,
+            *, name=None, minsize=8, maxsize=32, echo=False, pool_recycle=21600,
             charset=r'utf8', autocommit=True, cursorclass=aiomysql.DictCursor,
-            debug=False, readonly=False, conn_life=43200,
+            readonly=False, conn_life=43200,
             **settings
     ):
 
         self._name = name if name is not None else (Utils.uuid1()[:8] + (r'_ro' if readonly else r'_rw'))
         self._pool = None
         self._engine = None
-        self._debug = debug
         self._readonly = readonly
         self._conn_life = conn_life
 
@@ -142,22 +142,16 @@ class MySQLPool:
         self._settings[r'minsize'] = minsize
         self._settings[r'maxsize'] = maxsize
 
+        self._settings[r'echo'] = echo
         self._settings[r'pool_recycle'] = pool_recycle
         self._settings[r'charset'] = charset
         self._settings[r'autocommit'] = autocommit
         self._settings[r'cursorclass'] = cursorclass
 
-        self._settings.setdefault(r'echo', self._debug)
-
     @property
     def name(self):
 
         return self._name
-
-    @property
-    def debug(self):
-
-        return self._debug
 
     @property
     def readonly(self):
@@ -181,17 +175,41 @@ class MySQLPool:
 
         return self
 
+    async def health(self):
+
+        result = False
+
+        async with self._engine.acquire() as conn:
+            _proxy = await conn.execute(r'select version();')
+            result = bool(await _proxy.cursor.fetchone())
+
+        return result
+
+    async def reset(self):
+
+        if self._pool is not None:
+
+            await self._pool.clear()
+
+            await self.health()
+
+            Utils.log.info(
+                f'MySQL connection pool reset ({self._name}): {self._pool.size}/{self._pool.maxsize}'
+            )
+
     async def get_sa_conn(self):
 
         global MYSQL_POLL_WATER_LEVEL_WARNING_LINE
 
-        if self._pool.freesize < MYSQL_POLL_WATER_LEVEL_WARNING_LINE:
+        if (self._pool.maxsize - self._pool.size + self._pool.freesize) < MYSQL_POLL_WATER_LEVEL_WARNING_LINE:
             Utils.log.warning(
-                f'MySQL connection pool not enough ({self._name}): {self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+                f'MySQL connection pool not enough ({self._name}): '
+                f'{self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
             )
-        elif self._debug:
-            Utils.log.warning(
-                f'MySQL connection pool info ({self._name}): {self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+        else:
+            Utils.log.debug(
+                f'MySQL connection pool info ({self._name}): '
+                f'{self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
             )
 
         conn = await self._pool.acquire()
@@ -248,21 +266,18 @@ class MySQLDelegate:
 
     async def mysql_health(self):
 
-        result = False
-
-        if self._mysql_rw_pool:
-            async with self.get_db_client() as _client:
-                _proxy = await _client.execute(r'select version();')
-                result = bool(await _proxy.cursor.fetchone())
-                await _proxy.close()
-
-        if self._mysql_ro_pool:
-            async with self.get_db_client(True) as _client:
-                _proxy = await _client.execute(r'select version();')
-                result &= bool(await _proxy.cursor.fetchone())
-                await _proxy.close()
+        result = await self._mysql_rw_pool.health() if self._mysql_rw_pool else True
+        result &= await self._mysql_ro_pool.health() if self._mysql_ro_pool else True
 
         return result
+
+    async def reset_mysql_pool(self):
+
+        if self._mysql_rw_pool:
+            await self._mysql_rw_pool.reset()
+
+        if self._mysql_ro_pool:
+            await self._mysql_ro_pool.reset()
 
     def get_db_client(self, readonly=False, *, alone=False):
 
