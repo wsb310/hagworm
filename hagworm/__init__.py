@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = r'3.6.2'
+__version__ = r'3.6.3'
 
 package_slogan = r'''
  __  __   ______   ______   __     __   ______   ______   __    __    
