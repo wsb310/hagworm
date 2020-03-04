@@ -119,11 +119,17 @@ class Const(OrderedDict):
 
     def __setattr__(self, key, val):
 
-        self.__setitem__(key, val)
+        if key[:1] == r'_':
+            super().__setattr__(key, val)
+        else:
+            self.__setitem__(key, val)
 
     def __delattr__(self, key):
 
-        raise ConstError()
+        if key[:1] == r'_':
+            super().__delattr__(key)
+        else:
+            raise ConstError()
 
     def __setitem__(self, key, val):
 
