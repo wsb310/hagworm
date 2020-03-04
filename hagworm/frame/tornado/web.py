@@ -201,7 +201,7 @@ class SocketBaseHandler(WebSocketHandler, _BaseHandlerMixin):
     """WebSocket请求处理类
     """
 
-    def initialize(self, **kwargs):
+    def _initialize(self, **kwargs):
 
         setattr(self, r'_payload', kwargs)
 
@@ -219,7 +219,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
     """Http请求处理类
     """
 
-    def initialize(self, **kwargs):
+    def _initialize(self, **kwargs):
 
         setattr(self, r'_payload', kwargs)
 
