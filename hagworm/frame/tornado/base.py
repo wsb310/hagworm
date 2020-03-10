@@ -4,6 +4,7 @@ import signal
 import asyncio
 import logging
 
+import uvloop
 import jinja2
 
 from tornado_jinja2 import Jinja2Loader
@@ -188,6 +189,9 @@ class Launcher(_LauncherBase):
             self._process_id = fork_processes(self._process_num)
 
         options.parse_command_line()
+
+        # 启用uvloop事件循环
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
         AsyncIOMainLoop().install()
 

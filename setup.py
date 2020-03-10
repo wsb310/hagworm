@@ -23,9 +23,7 @@ setuptools.setup(
     package_data={r'hagworm': [r'static/*.*']},
     python_requires=r'>= 3.7',
     install_requires=[
-        r'aioftp==0.13.0',
         r'aiohttp==3.5.4',
-        r'aiokafka==0.5.2',
         r'aiomysql==0.0.20',
         r'aioredis==1.2.0',
         r'cacheout==0.11.1',
@@ -45,6 +43,7 @@ setuptools.setup(
         r'Sphinx==2.1.2',
         r'SQLAlchemy==1.3.5',
         r'tornado==6.0.3',
+        r'uvloop==0.14.0',
         r'WTForms==2.2.1',
         r'wtforms-tornado==0.0.2',
         r'xlwt==1.3.0',

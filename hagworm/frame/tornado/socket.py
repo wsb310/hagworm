@@ -3,6 +3,8 @@
 import signal
 import asyncio
 
+import uvloop
+
 from tornado.process import fork_processes
 from tornado.netutil import bind_sockets
 from tornado.tcpserver import TCPServer
@@ -144,6 +146,9 @@ class Launcher(_LauncherBase):
 
         if self._process_num > 1:
             self._process_id = fork_processes(self._process_num)
+
+        # 启用uvloop事件循环
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
         AsyncIOMainLoop().install()
 

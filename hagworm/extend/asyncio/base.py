@@ -6,6 +6,8 @@ import inspect
 import asyncio
 import functools
 
+import uvloop
+
 from contextvars import Context, ContextVar
 
 from hagworm import package_slogan
@@ -42,6 +44,9 @@ class Launcher(RunnableInterface):
         else:
 
             Utils.log.level(log_level)
+
+        # 启用uvloop事件循环
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
         self._event_loop = asyncio.get_event_loop()
         self._event_loop.set_debug(debug)
