@@ -6,14 +6,17 @@ import inspect
 import asyncio
 import functools
 
+import uvloop
+
 from contextvars import Context, ContextVar
 
 from hagworm import package_slogan
 from hagworm import __version__ as package_version
 from hagworm.extend import base
+from hagworm.extend.interface import RunnableInterface
 
 
-class Launcher:
+class Launcher(RunnableInterface):
     """异步版本的启动器
 
     用于简化和统一程序的启动操作
@@ -30,7 +33,7 @@ class Launcher:
             )
 
             Utils.log.add(
-                sink=_log_file_path,
+                _log_file_path,
                 level=log_level,
                 enqueue=True,
                 backtrace=debug,
@@ -42,10 +45,20 @@ class Launcher:
 
             Utils.log.level(log_level)
 
+        # 启用uvloop事件循环
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
         self._event_loop = asyncio.get_event_loop()
         self._event_loop.set_debug(debug)
 
-        Utils.log.info(f'{package_slogan}\nhagworm version {package_version}\n{Utils.environment()}')
+        environment = Utils.environment()
+
+        Utils.log.info(
+            f'{package_slogan}'
+            f'hagworm {package_version}\n'
+            f'python {environment["python"]}\n'
+            f'system {" ".join(environment["system"])}'
+        )
 
     def run(self, future):
 
@@ -295,6 +308,52 @@ class FutureWithTimeout(asyncio.Future):
             self._timeout_handle = None
 
 
+class FutureWithTask(asyncio.Future, RunnableInterface):
+    """Future实例可以被多个协程await，本类实现coroutine function返回future实例
+    """
+
+    def __init__(self, func, *args, **kwargs):
+
+        super().__init__()
+
+        self._name = Utils.uuid1()
+
+        if args or kwargs:
+            self._callable = Utils.func_partial(func, *args, **kwargs)
+        else:
+            self._callable = func
+
+    @property
+    def name(self):
+
+        return self._name
+
+    @name.setter
+    def name(self, val):
+
+        self._name = val
+
+    def __call__(self, *args, **kwargs):
+
+        return asyncio.create_task(self.run(*args, **kwargs))
+
+    async def run(self, *args, **kwargs):
+
+        result = None
+
+        try:
+
+            result = await self._callable(*args, **kwargs)
+
+            self.set_result(result)
+
+        except Exception as err:
+
+            self.set_exception(err)
+
+        return result
+
+
 class MultiTasks:
     """多任务并发管理器
 
@@ -451,7 +510,7 @@ class AsyncCirculator:
 
     """
 
-    def __init__(self, timeout=0, interval=10, max_times=0):
+    def __init__(self, timeout=0, interval=0xff, max_times=0):
 
         if timeout > 0:
             self._expire_time = Utils.loop_time() + timeout
@@ -728,3 +787,21 @@ class ShareFuture:
 
         for future in futures:
             future.set_result(Utils.deepcopy(result))
+
+
+class TimeDiff:
+
+    def __init__(self):
+
+        self._start_time = self._last_check_time = Utils.loop_time()
+
+    def check(self):
+
+        now_time = Utils.loop_time()
+
+        diff_time_1 = now_time - self._start_time
+        diff_time_2 = now_time - self._last_check_time
+
+        self._last_check_time = now_time
+
+        return diff_time_1, diff_time_2

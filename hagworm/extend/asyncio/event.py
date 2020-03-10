@@ -3,7 +3,7 @@
 from aioredis.pubsub import Receiver
 
 from hagworm.extend.event import EventDispatcher
-from hagworm.extend.asyncio.base import Utils, AsyncCirculator, FuncWrapper, FutureWithTimeout
+from hagworm.extend.asyncio.base import Utils, AsyncCirculatorForSecond, FuncWrapper, FutureWithTimeout
 
 
 class DistributedEvent(EventDispatcher):
@@ -23,7 +23,7 @@ class DistributedEvent(EventDispatcher):
 
     async def _event_listener(self, channel):
 
-        async for _ in AsyncCirculator():
+        async for _ in AsyncCirculatorForSecond():
 
             async with self._redis_pool.get_client() as cache:
 

@@ -2,7 +2,7 @@
 
 from hagworm.extend.base import Ignore, catch_error
 from hagworm.extend.metaclass import Singleton
-from hagworm.extend.asyncio.base import Utils, FuncCache, MultiTasks, async_adapter
+from hagworm.extend.asyncio.base import Utils, FuncCache, ShareFuture, MultiTasks, async_adapter
 from hagworm.extend.asyncio.cache import RedisDelegate
 from hagworm.extend.asyncio.database import MongoDelegate, MySQLDelegate
 
@@ -41,7 +41,7 @@ class DataSource(Singleton, RedisDelegate, MongoDelegate, MySQLDelegate):
                 ConfigStatic.MySqlMasterServer[0], ConfigStatic.MySqlMasterServer[1], ConfigStatic.MySqlName,
                 ConfigStatic.MySqlUser, ConfigStatic.MySqlPasswd,
                 minsize=ConfigStatic.MySqlMasterMinConn, maxsize=ConfigStatic.MySqlMasterMaxConn,
-                echo=ConfigDynamic.Debug
+                echo=ConfigDynamic.Debug, pool_recycle=21600, conn_life=43200
             )
 
         if ConfigStatic.MySqlSlaveServer:
@@ -50,10 +50,11 @@ class DataSource(Singleton, RedisDelegate, MongoDelegate, MySQLDelegate):
                 ConfigStatic.MySqlSlaveServer[0], ConfigStatic.MySqlSlaveServer[1], ConfigStatic.MySqlName,
                 ConfigStatic.MySqlUser, ConfigStatic.MySqlPasswd,
                 minsize=ConfigStatic.MySqlSlaveMinConn, maxsize=ConfigStatic.MySqlSlaveMaxConn,
-                readonly=True, echo=ConfigDynamic.Debug
+                echo=ConfigDynamic.Debug, pool_recycle=21600, readonly=True, conn_life=43200
             )
 
-    @FuncCache()
+    @ShareFuture()
+    @FuncCache(ttl=60)
     async def health(self):
 
         result = False

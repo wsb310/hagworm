@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
 
 
+class RunnableInterface:
+    """Runnable接口定义
+    """
+
+    def run(self):
+        raise NotImplementedError()
+
+
 class TaskInterface:
     """Task接口定义
     """

@@ -3,6 +3,8 @@
 import signal
 import asyncio
 
+import uvloop
+
 from tornado.process import fork_processes
 from tornado.netutil import bind_sockets
 from tornado.tcpserver import TCPServer
@@ -129,7 +131,7 @@ class Launcher(_LauncherBase):
 
     def __init__(self, protocol, port, **kwargs):
 
-        self._initialize(**kwargs)
+        super().__init__(**kwargs)
 
         if not issubclass(protocol, Protocol):
             raise TypeError(r'Dot Implemented Protocol Interface')
@@ -145,10 +147,13 @@ class Launcher(_LauncherBase):
         if self._process_num > 1:
             self._process_id = fork_processes(self._process_num)
 
+        # 启用uvloop事件循环
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
         AsyncIOMainLoop().install()
 
         self._event_loop = asyncio.get_event_loop()
-        self._event_loop.set_debug(kwargs.get(r'debug', False))
+        self._event_loop.set_debug(self._debug)
 
         self._server = _TCPServer(protocol, **self._settings)
 

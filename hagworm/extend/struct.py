@@ -10,6 +10,7 @@ from tempfile import TemporaryFile
 from configparser import RawConfigParser
 
 from .base import Utils
+from .error import ConstError
 
 
 class Result(dict):
@@ -112,22 +113,9 @@ class Const(OrderedDict):
     """常量类
     """
 
-    class _Predefine(NullData):
-        pass
-
-    class _ConstError(TypeError):
-        pass
-
-    def __init__(self):
-
-        super().__init__()
-
     def __getattr__(self, key):
 
-        if key[:1] == r'_':
-            return super().__getattr__(key)
-        else:
-            return self.__getitem__(key)
+        return self.__getitem__(key)
 
     def __setattr__(self, key, val):
 
@@ -141,18 +129,18 @@ class Const(OrderedDict):
         if key[:1] == r'_':
             super().__delattr__(key)
         else:
-            self.__delitem__(key)
+            raise ConstError()
 
     def __setitem__(self, key, val):
 
-        if key in self and not isinstance(self.__getitem__(key), Const._Predefine):
-            raise Const._ConstError()
+        if key in self:
+            raise ConstError()
         else:
             super().__setitem__(key, val)
 
     def __delitem__(self, key):
 
-        raise Const._ConstError()
+        raise ConstError()
 
     def exist(self, val):
 

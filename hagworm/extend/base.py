@@ -32,7 +32,7 @@ import xmltodict
 import xml.dom.minidom
 
 from datetime import datetime, timedelta
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 from collections import Iterable, OrderedDict
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -74,7 +74,10 @@ class Utils:
     @classmethod
     def environment(cls):
 
-        return f'python version {sys.version}\nsystem version {platform.uname().version}'
+        return {
+            r'python': sys.version,
+            r'system': [platform.system(), platform.release(), platform.version(), platform.machine()],
+        }
 
     @classmethod
     def utf8(cls, val):
@@ -316,6 +319,17 @@ class Utils:
                     return iterable[index]
 
         return cls.random.choice(iterable)
+
+    @classmethod
+    def get_host_ip(cls):
+
+        result = None
+
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as _socket:
+            _socket.connect((r'8.8.8.8', 53))
+            result = _socket.getsockname()[0]
+
+        return result
 
     @classmethod
     def ip2int(cls, val):
@@ -870,6 +884,39 @@ def catch_error():
     except Exception as err:
 
         Utils.log.exception(err)
+
+
+class HeartbeatChecker:
+
+    def __init__(self, name=None, timeout=60):
+
+        self._name = name if name else Utils.uuid1()
+        self._timeout = timeout
+
+        self._heartbeat_time = 0
+
+    def __bool__(self):
+
+        return Utils.timestamp() < (self._heartbeat_time + self._timeout)
+
+    @property
+    def name(self):
+
+        return self._name
+
+    @property
+    def timeout(self):
+
+        return self._timeout
+
+    @property
+    def heartbeat_time(self):
+
+        return self._heartbeat_time
+
+    def refresh(self):
+
+        self._heartbeat_time = Utils.timestamp()
 
 
 class ContextManager:

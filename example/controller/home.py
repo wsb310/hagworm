@@ -4,6 +4,7 @@ from wtforms import validators, StringField
 from wtforms_tornado import Form
 
 from hagworm.extend.struct import Result
+from hagworm.extend.asyncio.base import Utils
 from hagworm.frame.tornado.web import HttpBasicAuth, FormInjection, SocketBaseHandler, RequestBaseHandler, DownloadAgent
 
 from model.base import DataSource, _ModelBase
@@ -19,6 +20,10 @@ class Default(RequestBaseHandler):
             r'home/default.html',
             health=result
         )
+
+    def delete(self):
+
+        Utils.call_soon(DataSource().reset_mysql_pool)
 
 
 class Download(DownloadAgent):
