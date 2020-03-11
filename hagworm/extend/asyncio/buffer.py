@@ -10,7 +10,7 @@ class QueueBuffer:
 
         self._maxsize = maxsize
 
-        self._timer = IntervalTask(self._check, timeout) if timeout > 0 else None
+        self._timer = IntervalTask.create(timeout, False, self._check) if timeout > 0 else None
 
         self._data_list = []
 
