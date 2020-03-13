@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import re
 import json
 import struct
 import threading
@@ -488,3 +489,17 @@ class FileBuffer:
             self._read_offset = buffer.tell()
 
         return result
+
+
+class KeyLowerDict(dict):
+
+    _PATTERN = re.compile(r'(?<=[a-z])([A-Z])')
+
+    def __init__(self, _dict):
+
+        super().__init__(
+            {
+                KeyLowerDict._PATTERN.sub(r'_\1', key).lower(): KeyLowerDict(val) if isinstance(val, dict) else val
+                for key, val in _dict.items()
+            }
+        )
