@@ -36,6 +36,7 @@ from contextlib import contextmanager, closing
 from collections import Iterable, OrderedDict
 from zipfile import ZipFile, ZIP_DEFLATED
 
+from stdnum import luhn
 from cacheout import LRUCache
 
 
@@ -650,33 +651,9 @@ class Utils:
         return result
 
     @classmethod
-    def luhn_check_sum(cls, val):
-
-        check_sum = 0
-
-        for index, digit in enumerate(val):
-
-            digit = int(digit)
-
-            if not index & 1:
-                digit *= 2
-
-            if digit > 9:
-                digit -= 9
-
-            check_sum += digit
-
-        return check_sum % 10
-
-    @classmethod
     def luhn_valid(cls, val):
 
-        result = False
-
-        if val.isdigit():
-            result = (cls.luhn_check_sum(val) == 0)
-
-        return result
+        return luhn.is_valid(val)
 
     @classmethod
     def luhn_sign(cls, val):
@@ -684,13 +661,7 @@ class Utils:
         result = None
 
         if val.isdigit():
-
-            check_sum = cls.luhn_check_sum(val)
-
-            if check_sum > 0:
-                check_sum = 10 - check_sum
-
-            result = val + str(check_sum)
+            result = val + luhn.calc_check_digit(val)
 
         return result
 

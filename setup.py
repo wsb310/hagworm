@@ -40,6 +40,7 @@ setuptools.setup(
         r'PyJWT==1.7.1',
         r'pytest==5.0.1',
         r'pytest-asyncio==0.10.0',
+        r'python-stdnum==1.13',
         r'Sphinx==2.1.2',
         r'SQLAlchemy==1.3.5',
         r'tornado==6.0.3',
