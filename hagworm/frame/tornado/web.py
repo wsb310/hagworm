@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import json
 import functools
 
 from tornado.web import RequestHandler
@@ -105,6 +106,22 @@ class FormInjection:
                 )
 
         return _wrapper
+
+
+class LogRequestMixin:
+
+    def log_request(self):
+
+        Utils.log.info(
+            '\n---------- request arguments ----------\n' +
+            json.dumps(
+                {
+                    key: [val.decode(r'utf-8') for val in items]
+                    for key, items in self.request.arguments.items()
+                },
+                ensure_ascii=False, indent=4
+            )
+        )
 
 
 class _BaseHandlerMixin(Utils):
