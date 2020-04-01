@@ -11,11 +11,6 @@ class MySQLReadOnlyError(BaseError):
     pass
 
 
-# 流量限制异常
-class RateLimitError(BaseError):
-    pass
-
-
 # 常量设置异常
 class ConstError(BaseError):
     pass
