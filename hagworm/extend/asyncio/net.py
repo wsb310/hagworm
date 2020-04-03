@@ -7,7 +7,7 @@ import aiohttp
 
 from enum import Enum
 
-from hagworm.extend.struct import FileBuffer
+from hagworm.extend.asyncio.buffer import FileBuffer
 
 from .base import Utils
 

@@ -83,25 +83,35 @@ class SubProcess(TaskInterface):
     """
 
     @classmethod
-    def create(cls, program, *args, **kwargs):
+    async def create(cls, program, *args, stdin=None, stdout=None, stderr=None, **kwargs):
 
-        process = cls(program, *args, **kwargs)
-        process.start()
+        inst = cls(program, *args, stdin, stdout, stderr, **kwargs)
+        await inst.start()
 
-        return process
+        return inst
 
-    def __init__(self, program, *args, **kwargs):
+    def __init__(self, program, *args, stdin=None, stdout=None, stderr=None, **kwargs):
 
         self._program = program
         self._args = args
         self._kwargs = kwargs
 
-        self._stdin = kwargs.pop(r'stdin') if r'stdin' in kwargs else None
-        self._stdout = kwargs.pop(r'stdout') if r'stdout' in kwargs else asyncio.subprocess.PIPE
-        self._stderr = kwargs.pop(r'stderr') if r'stderr' in kwargs else asyncio.subprocess.PIPE
+        self._stdin = asyncio.subprocess.DEVNULL if stdin is None else stdin
+        self._stdout = asyncio.subprocess.DEVNULL if stdout is None else stdout
+        self._stderr = asyncio.subprocess.DEVNULL if stderr is None else stderr
 
         self._process = None
         self._process_id = None
+
+    @property
+    def pid(self):
+
+        return self._process_id
+
+    @property
+    def process(self):
+
+        return self._process
 
     @property
     def stdin(self):
@@ -124,7 +134,7 @@ class SubProcess(TaskInterface):
 
     async def start(self):
 
-        if self._process is not None:
+        if self.is_running():
             return False
 
         self._process = await asyncio.create_subprocess_exec(
@@ -139,9 +149,19 @@ class SubProcess(TaskInterface):
 
         return True
 
-    def stop(self):
+    async def stop(self):
 
-        if self._process is None:
+        if not self.is_running():
+            return False
+
+        self._process.kill()
+        await self._process.wait()
+
+        return True
+
+    def kill(self):
+
+        if self._process is None or not self.is_running():
             return False
 
         self._process.kill()
@@ -150,12 +170,12 @@ class SubProcess(TaskInterface):
 
     async def wait(self, timeout=None):
 
+        if not self.is_running():
+            return
+
         try:
-
             await asyncio.wait_for(self._process.wait(), timeout=timeout)
-
         except Exception as err:
-
-            self._process.kill()
-
             Utils.log.error(err)
+        finally:
+            await self.stop()

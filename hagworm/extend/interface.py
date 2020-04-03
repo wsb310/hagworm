@@ -21,3 +21,11 @@ class TaskInterface:
 
     def is_running(self):
         raise NotImplementedError()
+
+
+class ObjectFactoryInterface:
+    """对象工厂类接口定义
+    """
+
+    def create(self):
+        raise NotImplementedError()
