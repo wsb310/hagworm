@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from tempfile import SpooledTemporaryFile
+from tempfile import TemporaryFile
 
 from .base import Utils
 from .task import IntervalTask
 
-from hagworm.extend.interface import ObjectFactoryInterface
+from hagworm.extend.base import ContextManager
 
 
 class QueueBuffer:
@@ -39,23 +39,11 @@ class QueueBuffer:
             Utils.call_soon(self._run, data_list)
 
 
-class FileBuffer:
+class FileBuffer(ContextManager):
     """文件缓存类
     """
 
-    class DefaultFactory(ObjectFactoryInterface):
-
-        def __init__(self, max_size=0x10000):
-
-            self._max_size = max_size
-
-        def create(self):
-
-            return SpooledTemporaryFile(self._max_size)
-
-    def __init__(self, slice_size=0x1000000, file_factory=None):
-
-        self._factory = self.DefaultFactory() if file_factory is None else file_factory
+    def __init__(self, slice_size=0x1000000):
 
         self._buffers = []
 
@@ -65,13 +53,20 @@ class FileBuffer:
 
         self._append_buffer()
 
+    def _context_release(self):
+
+        self.close()
+
     def _append_buffer(self):
 
-        self._buffers.append(self._factory.create())
+        self._buffers.append(TemporaryFile())
 
-    def fileno(self):
+    def close(self):
 
-        return self._buffers[-1].fileno()
+        while len(self._buffers) > 0:
+            self._buffers.pop(0).close()
+
+        self._read_offset = 0
 
     def write(self, data):
 
@@ -79,9 +74,9 @@ class FileBuffer:
 
         buffer.seek(0, 2)
         buffer.write(data)
-        buffer.flush()
 
         if buffer.tell() >= self._slice_size:
+            buffer.flush()
             self._append_buffer()
 
     def read(self, size=None):

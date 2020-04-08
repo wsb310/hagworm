@@ -161,7 +161,7 @@ class SubProcess(TaskInterface):
 
     def kill(self):
 
-        if self._process is None or not self.is_running():
+        if not self.is_running():
             return False
 
         self._process.kill()

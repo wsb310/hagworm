@@ -20,7 +20,6 @@ def json_wraps(func):
 
     @functools.wraps(func)
     async def _wrapper(handler, *args, **kwargs):
-
         resp = await Utils.awaitable_wrapper(
             func(handler, *args, **kwargs)
         )
@@ -111,7 +110,6 @@ class FormInjection:
 class LogRequestMixin:
 
     def log_request(self):
-
         Utils.log.info(
             '\n---------- request arguments ----------\n' +
             json.dumps(
@@ -130,79 +128,64 @@ class _BaseHandlerMixin(Utils):
 
     @property
     def request_module(self):
-
         return f'{self.module}.{self.method}'
 
     @property
     def module(self):
-
         _class = self.__class__
 
         return f'{_class.__module__}.{_class.__name__}'
 
     @property
     def method(self):
-
         return self.request.method.lower()
 
     @property
     def version(self):
-
         return self.request.version.lower()
 
     @property
     def protocol(self):
-
         return self.request.protocol
 
     @property
     def host(self):
-
         return self.request.host
 
     @property
     def path(self):
-
         return self.request.path
 
     @property
     def query(self):
-
         return self.request.query
 
     @property
     def body(self):
-
         return self.request.body
 
     @property
     def files(self):
-
         return self.request.files
 
     @property
     def closed(self):
-
         return self.request.connection.stream.closed()
 
     @property
     def referer(self):
-
         return self.get_header(r'Referer', r'')
 
     @property
     def client_ip(self):
-
         return self.get_header(r'X-Real-IP', self.request.remote_ip)
 
     @property
     def content_type(self):
-
         return self.get_header(r'Content-Type', r'')
 
     @property
     def content_length(self):
-
         result = self.get_header(r'Content-Length', r'')
 
         return int(result) if result.isdigit() else 0
@@ -219,16 +202,13 @@ class SocketBaseHandler(WebSocketHandler, _BaseHandlerMixin):
     """
 
     def initialize(self, **kwargs):
-
         setattr(self, r'_payload', kwargs)
 
     @property
     def payload(self):
-
         return getattr(self, r'_payload', None)
 
     def check_origin(self, origin):
-
         return True
 
 
@@ -310,9 +290,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
         session = self.get_cookie(r'session')
 
         if not session:
-
             session = self.uuid1()
-
             self.set_cookie(r'session', session)
 
         self.current_user = session
@@ -495,6 +473,10 @@ class DownloadAgent(RequestBaseHandler, DownloadBuffer):
 
         RequestBaseHandler.__init__(self, *args, **kwargs)
         DownloadBuffer.__init__(self)
+
+    def on_finish(self):
+
+        self.close()
 
     async def _handle_response(self, response):
 

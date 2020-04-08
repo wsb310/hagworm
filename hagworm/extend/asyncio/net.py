@@ -7,6 +7,7 @@ import aiohttp
 
 from enum import Enum
 
+from hagworm.extend.base import ContextManager
 from hagworm.extend.asyncio.buffer import FileBuffer
 
 from .base import Utils
@@ -411,6 +412,11 @@ class Downloader(_HTTPClient):
         return await Utils.sleep(2 ** times)
 
     @property
+    def file(self):
+
+        return self._file
+
+    @property
     def state(self):
 
         return self._state
@@ -476,7 +482,7 @@ class Downloader(_HTTPClient):
         return result
 
 
-class DownloadBuffer(Downloader):
+class DownloadBuffer(ContextManager, Downloader):
     """HTTP文件下载器(临时文件版)
     """
 
@@ -484,10 +490,13 @@ class DownloadBuffer(Downloader):
 
         super().__init__(FileBuffer(), 1, timeout, **kwargs)
 
-    @property
-    def buffer(self):
+    def _context_release(self):
 
-        return self._file
+        self.close()
+
+    def close(self):
+
+        self._file.close()
 
     async def _handle_response(self, response):
 
