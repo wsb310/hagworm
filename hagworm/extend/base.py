@@ -36,7 +36,10 @@ from contextlib import contextmanager, closing
 from collections import Iterable, OrderedDict
 from zipfile import ZipFile, ZIP_DEFLATED
 
+from stdnum import luhn
 from cacheout import LRUCache
+
+from .error import BaseError
 
 
 class Utils:
@@ -160,7 +163,7 @@ class Utils:
         try:
             if not isinstance(val, float):
                 result = int(val)
-        except BaseException:
+        except Exception as _:
             pass
 
         return result
@@ -173,7 +176,7 @@ class Utils:
         try:
             if not isinstance(val, float):
                 result = float(val)
-        except BaseException:
+        except Exception as _:
             pass
 
         return result
@@ -650,33 +653,9 @@ class Utils:
         return result
 
     @classmethod
-    def luhn_check_sum(cls, val):
-
-        check_sum = 0
-
-        for index, digit in enumerate(val):
-
-            digit = int(digit)
-
-            if not index & 1:
-                digit *= 2
-
-            if digit > 9:
-                digit -= 9
-
-            check_sum += digit
-
-        return check_sum % 10
-
-    @classmethod
     def luhn_valid(cls, val):
 
-        result = False
-
-        if val.isdigit():
-            result = (cls.luhn_check_sum(val) == 0)
-
-        return result
+        return luhn.is_valid(val)
 
     @classmethod
     def luhn_sign(cls, val):
@@ -684,13 +663,7 @@ class Utils:
         result = None
 
         if val.isdigit():
-
-            check_sum = cls.luhn_check_sum(val)
-
-            if check_sum > 0:
-                check_sum = 10 - check_sum
-
-            result = val + str(check_sum)
+            result = val + luhn.calc_check_digit(val)
 
         return result
 
@@ -841,7 +814,7 @@ class Utils:
                 process.kill()
 
 
-class Ignore(Exception):
+class Ignore(BaseError):
     """可忽略的异常
 
     用于with语句块跳出，或者需要跳出多层逻辑的情况
@@ -850,7 +823,8 @@ class Ignore(Exception):
 
     def __init__(self, data=None, layers=1):
 
-        self._data = data
+        super().__init__(data)
+
         self._layers = layers
 
         if self._data:
@@ -865,7 +839,7 @@ class Ignore(Exception):
 
 
 @contextmanager
-def catch_error():
+def catch_error(level=r'exception'):
     """异常捕获
 
     通过with语句捕获异常，代码更清晰，还可以使用Ignore异常安全的跳出with代码块

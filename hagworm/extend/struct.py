@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
+import re
 import json
 import struct
 import threading
 
 from io import BytesIO
 from collections import OrderedDict
-from tempfile import TemporaryFile
 from configparser import RawConfigParser
 
 from .base import Utils
@@ -450,41 +450,15 @@ class Configure(Const):
         self._init_options()
 
 
-class FileBuffer:
-    """文件缓存类
-    """
+class KeyLowerDict(dict):
 
-    def __init__(self, slice_size=0x20000):
+    _PATTERN = re.compile(r'(?<=[a-z])([A-Z])')
 
-        self._buffers = [TemporaryFile()]
+    def __init__(self, _dict):
 
-        self._slice_size = slice_size
-
-        self._read_offset = 0
-
-    def write(self, data):
-
-        buffer = self._buffers[-1]
-
-        buffer.seek(0, 2)
-        buffer.write(data)
-        buffer.flush()
-
-        if buffer.tell() >= self._slice_size:
-            self._buffers.append(TemporaryFile())
-
-    def read(self, size=None):
-
-        buffer = self._buffers[0]
-
-        buffer.seek(self._read_offset, 0)
-
-        result = buffer.read(size)
-
-        if len(result) == 0 and len(self._buffers) > 1:
-            self._buffers.pop(0).close()
-            self._read_offset = 0
-        else:
-            self._read_offset = buffer.tell()
-
-        return result
+        super().__init__(
+            {
+                KeyLowerDict._PATTERN.sub(r'_\1', key).lower(): KeyLowerDict(val) if isinstance(val, dict) else val
+                for key, val in _dict.items()
+            }
+        )

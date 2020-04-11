@@ -3,9 +3,9 @@
 import asyncio
 
 from crontab import CronTab
+from collections import OrderedDict
 
 from hagworm.extend.interface import TaskInterface
-from hagworm.extend.error import RateLimitError
 
 from .base import Utils, FutureWithTask
 
@@ -197,36 +197,91 @@ class CronTask(_BaseTask, CronTab):
 
 
 class RateLimiter:
+    """流量控制器，用于对计算资源的保护
+    添加任务append函数如果成功会返回Future对象，可以通过await该对象等待执行结果
+    进入队列的任务，如果触发限流行为会通过在Future上引发CancelledError传递出来
+    """
 
-    def __init__(self, running_limit, waiting_limit=0):
+    def __init__(self, running_limit, waiting_limit=0, timeout=0):
 
         self._running_limit = running_limit
         self._waiting_limit = waiting_limit
 
-        self._running_tasks = {}
-        self._waiting_tasks = []
+        self._timeout = timeout
 
-    async def __call__(self, func, *args, **kwargs):
+        self._running_tasks = OrderedDict()
+        self._waiting_tasks = OrderedDict()
 
-        future = self.append(func, *args, **kwargs)
+    @property
+    def running_tasks(self):
 
-        if future is None:
-            raise RateLimitError()
+        return list(self._running_tasks.values())
 
-        return await future
+    @property
+    def running_length(self):
+
+        return len(self._running_tasks)
+
+    @property
+    def waiting_tasks(self):
+
+        return list(self._waiting_tasks.values())
+
+    @property
+    def waiting_length(self):
+
+        return len(self._waiting_tasks)
+
+    def _create_task(self, name, func, *args, **kwargs):
+
+        if len(args) == 0 and len(kwargs) == 0:
+            return FutureWithTask(func, name)
+        else:
+            return FutureWithTask(Utils.func_partial(func, *args, **kwargs), name)
 
     def append(self, func, *args, **kwargs):
 
-        future = None
+        return self._append(None, func, *args, **kwargs)
 
-        if self._check_running_limit():
-            future = FutureWithTask(func, *args, **kwargs)
-            self._add_running_tasks(future)
-        elif self._check_waiting_limit():
-            future = FutureWithTask(func, *args, **kwargs)
-            self._add_waiting_tasks(future)
+    def append_with_name(self, name, func, *args, **kwargs):
 
-        return future
+        return self._append(name, func, *args, **kwargs)
+
+    def _append(self, name, func, *args, **kwargs):
+
+        task = None
+
+        task_tag = f"{name or r''} {func} {args or r''} {kwargs or r''}"
+
+        if name is None or ((name not in self._running_tasks) and (name not in self._waiting_tasks)):
+
+            if self._check_running_limit():
+
+                task = self._create_task(name, func, *args, **kwargs)
+                self._add_running_tasks(task)
+
+                Utils.log.debug(f'rate limit add running tasks: {task_tag}')
+
+            elif self._check_waiting_limit():
+
+                task = self._create_task(name, func, *args, **kwargs)
+                self._add_waiting_tasks(task)
+
+                Utils.log.debug(f'rate limit add waiting tasks: {task_tag}')
+
+            else:
+
+                Utils.log.warning(
+                    f'rate limit: {task_tag}\n'
+                    f'running: {self.running_length}/{self.running_limit}\n'
+                    f'waiting: {self.waiting_length}/{self.waiting_limit}'
+                )
+
+        else:
+
+            Utils.log.warning(f'rate limit duplicate: {task_tag}')
+
+        return task
 
     @property
     def running_limit(self):
@@ -242,7 +297,7 @@ class RateLimiter:
 
     def _check_running_limit(self):
 
-        return self._running_limit <= 0 or len(self._running_tasks) < self._running_limit
+        return (self._running_limit <= 0) or (len(self._running_tasks) < self._running_limit)
 
     @property
     def waiting_limit(self):
@@ -259,32 +314,55 @@ class RateLimiter:
 
     def _check_waiting_limit(self):
 
-        return self._waiting_limit <= 0 or len(self._waiting_tasks) < self._waiting_limit
+        return (self._waiting_limit <= 0) or (len(self._waiting_tasks) < self._waiting_limit)
 
-    def _add_running_tasks(self, future_callable):
+    @property
+    def timeout(self):
 
-        future_callable.add_done_callback(self._done_callback)
-        self._running_tasks[future_callable.name] = future_callable
+        return self._timeout
 
-        future_callable()
+    @timeout.setter
+    def timeout(self, val):
 
-    def _add_waiting_tasks(self, future_callable):
+        self._timeout = val
 
-        self._waiting_tasks.append(future_callable)
+    def _check_timeout(self, task):
+
+        return (self._timeout <= 0) or ((Utils.loop_time() - task.build_time) < self._timeout)
+
+    def _add_running_tasks(self, task):
+
+        if not self._check_timeout(task):
+            task.cancel()
+            Utils.log.warning(f'rate limit timeout: {task.name} build_time:{task.build_time}')
+        elif task.name in self._running_tasks:
+            task.cancel()
+            Utils.log.warning(f'rate limit duplicate: {task.name}')
+        else:
+            task.add_done_callback(self._done_callback)
+            self._running_tasks[task.name] = task.run()
+
+    def _add_waiting_tasks(self, task):
+
+        if task.name not in self._waiting_tasks:
+            self._waiting_tasks[task.name] = task
+        else:
+            task.cancel()
+            Utils.log.warning(f'rate limit duplicate: {task.name}')
 
     def _recover_waiting_tasks(self):
 
         for _ in range(len(self._waiting_tasks)):
 
             if self._check_running_limit():
-                future_callable = self._waiting_tasks.pop(0)
-                self._add_running_tasks(future_callable)
+                item = self._waiting_tasks.popitem(False)
+                self._add_running_tasks(item[1])
             else:
                 break
 
-    def _done_callback(self, future_callable):
+    def _done_callback(self, task):
 
-        if future_callable.name in self._running_tasks:
-            self._running_tasks.pop(future_callable.name)
+        if task.name in self._running_tasks:
+            self._running_tasks.pop(task.name)
 
         self._recover_waiting_tasks()

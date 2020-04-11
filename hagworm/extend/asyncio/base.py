@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import copy
 import types
 import weakref
 import inspect
@@ -309,41 +310,47 @@ class FutureWithTimeout(asyncio.Future):
 
 
 class FutureWithTask(asyncio.Future, RunnableInterface):
-    """Future实例可以被多个协程await，本类实现coroutine function返回future实例
+    """Future实例可以被多个协程await，本类实现Future和Task的桥接
     """
 
-    def __init__(self, func, *args, **kwargs):
+    def __init__(self, func, name=None):
 
         super().__init__()
 
-        self._name = Utils.uuid1()
-
-        if args or kwargs:
-            self._callable = Utils.func_partial(func, *args, **kwargs)
-        else:
-            self._callable = func
+        self._name = Utils.uuid1() if name is None else name
+        self._task = None
+        self._callable = func
+        self._build_time = Utils.loop_time()
 
     @property
     def name(self):
 
         return self._name
 
-    @name.setter
-    def name(self, val):
+    @property
+    def task(self):
 
-        self._name = val
+        return self._task
 
-    def __call__(self, *args, **kwargs):
+    @property
+    def build_time(self):
 
-        return asyncio.create_task(self.run(*args, **kwargs))
+        return self._build_time
 
-    async def run(self, *args, **kwargs):
+    def run(self):
+
+        if self._task is None:
+            self._task = asyncio.create_task(self._run())
+
+        return self
+
+    async def _run(self):
 
         result = None
 
         try:
 
-            result = await self._callable(*args, **kwargs)
+            result = await self._callable()
 
             self.set_result(result)
 
@@ -648,8 +655,15 @@ class Transaction(AsyncContextManager):
 
     def __init__(self):
 
-        self._commit_callbacks = set()
-        self._rollback_callbacks = set()
+        self._commit_callbacks = []
+        self._rollback_callbacks = []
+
+    def _clear_callbacks(self):
+
+        self._commit_callbacks.clear()
+        self._rollback_callbacks.clear()
+
+        self._commit_callbacks = self._rollback_callbacks = None
 
     async def _context_release(self):
 
@@ -658,44 +672,55 @@ class Transaction(AsyncContextManager):
     def add_commit_callback(self, _callable):
 
         if self._commit_callbacks is None:
-            return
+            return False
 
-        self._commit_callbacks.add(_callable)
+        self._commit_callbacks.append(_callable)
+
+        return True
 
     def add_rollback_callback(self, _callable):
 
         if self._rollback_callbacks is None:
-            return
+            return False
 
-        self._rollback_callbacks.add(_callable)
+        self._rollback_callbacks.append(_callable)
+
+        return True
 
     async def commit(self):
 
         if self._commit_callbacks is None:
             return
 
-        callbacks = self._commit_callbacks
+        callbacks = self._commit_callbacks.copy()
 
-        self._commit_callbacks = self._rollback_callbacks = None
+        self._clear_callbacks()
 
         for _callable in callbacks:
-            await Utils.awaitable_wrapper(
-                _callable()
-            )
+            with base.catch_error():
+                await Utils.awaitable_wrapper(
+                    _callable()
+                )
 
     async def rollback(self):
 
         if self._rollback_callbacks is None:
             return
 
-        callbacks = self._rollback_callbacks
+        callbacks = self._rollback_callbacks.copy()
 
-        self._commit_callbacks = self._rollback_callbacks = None
+        self._clear_callbacks()
 
         for _callable in callbacks:
-            await Utils.awaitable_wrapper(
-                _callable()
-            )
+            with base.catch_error():
+                await Utils.awaitable_wrapper(
+                    _callable()
+                )
+
+    def bind(self, trx):
+
+        self.add_commit_callback(trx.commit)
+        self.add_rollback_callback(trx.rollback)
 
 
 class FuncCache:

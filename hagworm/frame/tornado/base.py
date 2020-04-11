@@ -20,6 +20,7 @@ from hagworm import package_slogan
 from hagworm import __version__ as package_version
 from hagworm.extend.base import Utils
 from hagworm.extend.interface import TaskInterface
+from hagworm.frame.tornado.web import LogRequestMixin
 
 
 class _InterceptHandler(logging.Handler):
@@ -152,6 +153,17 @@ class _LauncherBase(TaskInterface):
         return self._event_loop.is_running()
 
 
+class _Application(Application):
+
+    def log_request(self, handler):
+
+        if isinstance(handler, LogRequestMixin):
+            handler.log_request()
+            super().log_request(handler)
+        elif self.settings.get(r'debug') or handler.get_status() >= 400:
+            super().log_request(handler)
+
+
 class Launcher(_LauncherBase):
     """TornadoHttp的启动器
 
@@ -167,7 +179,6 @@ class Launcher(_LauncherBase):
             r'handlers': router,
             r'debug': self._debug,
             r'gzip': kwargs.get(r'gzip', False),
-            r'log_function': self._log_request,
         }
 
         if r'template_path' in kwargs:
@@ -198,32 +209,10 @@ class Launcher(_LauncherBase):
         self._event_loop = asyncio.get_event_loop()
         self._event_loop.set_debug(self._settings[r'debug'])
 
-        self._server = HTTPServer(Application(**self._settings))
+        self._server = HTTPServer(_Application(**self._settings))
 
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGTERM, self.stop)
 
         if self._async_initialize:
             self._event_loop.run_until_complete(self._async_initialize())
-
-    def _log_request(self, handler):
-
-        status = handler.get_status()
-
-        if status < 400:
-            if self._settings[r'debug']:
-                log_method = Utils.log.debug
-            else:
-                return
-        elif status < 500:
-            log_method = Utils.log.warning
-        else:
-            log_method = Utils.log.error
-
-        log_method(
-            r'%d %s %.2fms' % (
-                handler.get_status(),
-                handler._request_summary(),
-                1000.0 * handler.request.request_time()
-            )
-        )

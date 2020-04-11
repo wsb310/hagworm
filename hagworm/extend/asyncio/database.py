@@ -179,9 +179,12 @@ class MySQLPool:
 
         result = False
 
-        async with self._engine.acquire() as conn:
-            _proxy = await conn.execute(r'select version();')
-            result = bool(await _proxy.cursor.fetchone())
+        async with self.get_client() as client:
+
+            proxy = await client.execute(r'select version();')
+            await proxy.close()
+
+            result = True
 
         return result
 
@@ -630,9 +633,11 @@ class DBTransaction(DBClient):
 
             except Exception as err:
 
+                Utils.log.exception(err)
+
                 await self._close_conn(True)
 
-                Utils.log.exception(err)
+                raise err
 
         return result
 
