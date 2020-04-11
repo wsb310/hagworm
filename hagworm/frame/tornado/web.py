@@ -324,7 +324,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
 
                         self.request.arguments.setdefault(key, []).append(val)
 
-            except BaseException:
+            except Exception as _:
 
                 self.log.debug(f'Invalid application/json body: {self.body}')
 
@@ -418,7 +418,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
         if result is not None:
             try:
                 result = self.json_decode(_argument)
-            except BaseException:
+            except Exception as _:
                 self.log.debug(f'Invalid application/json argument({name}): {_argument}')
 
         return result
@@ -451,7 +451,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
 
         try:
             result = self.json_encode(chunk)
-        except BaseException:
+        except Exception as _:
             result = None
 
         return self.finish(result)
@@ -509,7 +509,7 @@ class DownloadAgent(RequestBaseHandler, DownloadBuffer):
 
         try:
             result = os.path.split(self.urlparse.urlparse(url)[2])[1]
-        except BaseException:
+        except Exception as _:
             pass
 
         return result

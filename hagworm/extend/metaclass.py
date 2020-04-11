@@ -27,7 +27,7 @@ class SingletonMetaclass(type):
             else:
                 result = cls._instance = super().__call__(*args, **kwargs)
 
-        except BaseException:
+        except Exception as _:
 
             traceback.print_exc()
 

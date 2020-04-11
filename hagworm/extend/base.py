@@ -39,6 +39,8 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from stdnum import luhn
 from cacheout import LRUCache
 
+from .error import BaseError
+
 
 class Utils:
     """基础工具类
@@ -161,7 +163,7 @@ class Utils:
         try:
             if not isinstance(val, float):
                 result = int(val)
-        except BaseException:
+        except Exception as _:
             pass
 
         return result
@@ -174,7 +176,7 @@ class Utils:
         try:
             if not isinstance(val, float):
                 result = float(val)
-        except BaseException:
+        except Exception as _:
             pass
 
         return result
@@ -812,7 +814,7 @@ class Utils:
                 process.kill()
 
 
-class Ignore(Exception):
+class Ignore(BaseError):
     """可忽略的异常
 
     用于with语句块跳出，或者需要跳出多层逻辑的情况
@@ -821,7 +823,8 @@ class Ignore(Exception):
 
     def __init__(self, data=None, layers=1):
 
-        self._data = data
+        super().__init__(data)
+
         self._layers = layers
 
         if self._data:
@@ -836,7 +839,7 @@ class Ignore(Exception):
 
 
 @contextmanager
-def catch_error():
+def catch_error(level=r'exception'):
     """异常捕获
 
     通过with语句捕获异常，代码更清晰，还可以使用Ignore异常安全的跳出with代码块
