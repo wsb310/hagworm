@@ -4,6 +4,7 @@ import aioredis
 
 from aioredis.util import _NOTSET
 from aioredis.commands.string import StringCommandsMixin
+from aioredis.commands.transaction import Pipeline, MultiExec
 from aioredis.errors import ReplyError, MaxClientsError, AuthError, ReadOnlyError
 
 from contextlib import asynccontextmanager
@@ -20,7 +21,7 @@ class RedisPool:
     """Redis连接管理
     """
 
-    def __init__(self, address, password=None, *, minsize=8, maxsize=32, db=0, expire=3600, key_prefix=r'', **settings):
+    def __init__(self, address, password=None, *, minsize=8, maxsize=32, db=0, expire=0, key_prefix=None, **settings):
 
         self._pool = None
         self._expire = expire
@@ -116,7 +117,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     def __init__(self, pool, expire, key_prefix):
 
-        aioredis.Redis.__init__(self, None)
+        super().__init__(None)
 
         self._pool = pool
 
@@ -233,38 +234,52 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
         return MLock(self, key, expire)
 
-    # PUB/SUB COMMANDS
+    # Transaction commands
+
+    async def unwatch(self):
+
+        async with self.catch_error():
+            await self._init_conn()
+            return super().unwatch()
+
+    async def watch(self, key, *keys):
+
+        async with self.catch_error():
+            await self._init_conn()
+            return super().watch()
+
+    def multi_exec(self):
+
+        return MultiExec(self._pool, aioredis.Redis, loop=self._pool._loop)
+
+    def pipeline(self):
+
+        return Pipeline(self._pool, aioredis.Redis, loop=self._pool._loop)
+
+    # Pub/Sub commands
 
     async def subscribe(self, channel, *channels):
 
         async with self.catch_error():
-
             await self._init_conn()
-
             return await super().subscribe(channel, *channels)
 
     async def unsubscribe(self, channel, *channels):
 
         async with self.catch_error():
-
             await self._init_conn()
-
             return await super().unsubscribe(channel, *channels)
 
     async def psubscribe(self, pattern, *patterns):
 
         async with self.catch_error():
-
             await self._init_conn()
-
             return await super().psubscribe(pattern, *patterns)
 
     async def punsubscribe(self, pattern, *patterns):
 
         async with self.catch_error():
-
             await self._init_conn()
-
             return await super().punsubscribe(pattern, *patterns)
 
     @property
@@ -308,12 +323,11 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     async def set(self, key, value, expire=0):
 
-        if expire <= 0:
-            expire = self._expire
+        _expire = expire if expire > 0 else self._expire
 
         value = self._val_encode(value)
 
-        result = await super().set(key, value, expire=expire)
+        result = await super().set(key, value, expire=_expire)
 
         return result
 

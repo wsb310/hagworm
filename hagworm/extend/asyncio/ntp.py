@@ -34,10 +34,6 @@ class _Interface(TaskInterface):
         raise NotImplementedError()
 
     @property
-    def calibrated(self):
-        raise NotImplementedError()
-
-    @property
     def timestamp(self):
         raise NotImplementedError()
 
@@ -61,7 +57,6 @@ class AsyncNTPClient(_Interface):
         self._sync_task = IntervalTask(self.calibrate_offset, interval)
 
         self._sampling = sampling
-        self._calibrated = False
 
     def start(self):
 
@@ -92,21 +87,14 @@ class AsyncNTPClient(_Interface):
 
         if samples:
             self._offset = float(numpy.median(samples))
-            self._calibrated = True
             Utils.log.info(f'NTP server {host_name} offset median {self._offset} samples: {samples}')
         else:
-            self._calibrated = False
             raise NTPCalibrateError(f'NTP server {host_name} not available, timestamp uncalibrated')
 
     @property
     def offset(self):
 
         return self._offset
-
-    @property
-    def calibrated(self):
-
-        return self._calibrated
 
     @property
     def timestamp(self):
@@ -165,18 +153,9 @@ class AsyncNTPClientPool(_Interface):
         samples = []
 
         for client in self._clients:
-            if client.calibrated:
-                samples.append(client.offset)
+            samples.append(client.offset)
 
-        if samples:
-            return float(numpy.median(samples))
-        else:
-            return 0
-
-    @property
-    def calibrated(self):
-
-        return any(client.calibrated for client in self._clients)
+        return float(numpy.median(samples))
 
     @property
     def timestamp(self):
