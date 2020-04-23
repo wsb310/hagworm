@@ -42,7 +42,18 @@ class AsyncNTPClient(_Interface):
     """异步NTP客户端类
     """
 
-    def __init__(self, host, *, version=2, port=r'ntp', timeout=5, interval=60, sampling=10):
+    @classmethod
+    async def create(cls, host):
+
+        client = cls(host)
+
+        await client.calibrate_offset()
+
+        client.start()
+
+        return client
+
+    def __init__(self, host, *, version=2, port=r'ntp', timeout=5, interval=3600, sampling=5):
 
         self._settings = {
             r'host': host,
@@ -60,7 +71,7 @@ class AsyncNTPClient(_Interface):
 
     def start(self):
 
-        return self._sync_task.start(True)
+        return self._sync_task.start()
 
     def stop(self):
 
@@ -87,7 +98,7 @@ class AsyncNTPClient(_Interface):
 
         if samples:
             self._offset = float(numpy.median(samples))
-            Utils.log.info(f'NTP server {host_name} offset median {self._offset} samples: {samples}')
+            Utils.log.debug(f'NTP server {host_name} offset median {self._offset} samples: {samples}')
         else:
             raise NTPCalibrateError(f'NTP server {host_name} not available, timestamp uncalibrated')
 
@@ -106,12 +117,26 @@ class AsyncNTPClientPool(_Interface):
     """异步NTP客户端池，多节点取中位数实现高可用
     """
 
+    @classmethod
+    async def create(cls, hosts):
+
+        client_pool = cls()
+
+        for host in hosts:
+            client_pool.append(host)
+
+        await client_pool.calibrate_offset()
+
+        client_pool.start()
+
+        return client_pool
+
     def __init__(self):
 
         self._clients = []
         self._running = False
 
-    def append(self, host, *, version=2, port='ntp', timeout=5, interval=60, sampling=10):
+    def append(self, host, *, version=2, port='ntp', timeout=5, interval=3600, sampling=5):
 
         client = AsyncNTPClient(host, version=version, port=port, timeout=timeout, interval=interval, sampling=sampling)
 

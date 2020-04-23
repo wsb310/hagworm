@@ -109,14 +109,14 @@ class Utils:
         )
 
     @classmethod
-    def json_encode(cls, val):
+    def json_encode(cls, val, **kwargs):
 
-        return json.dumps(val).replace(r'</', r'<\\/')
+        return json.dumps(val, **kwargs).replace(r'</', r'<\\/')
 
     @classmethod
-    def json_decode(cls, val):
+    def json_decode(cls, val, **kwargs):
 
-        return json.loads(cls.basestring(val))
+        return json.loads(cls.basestring(val), **kwargs)
 
     @classmethod
     def today(cls, origin=False):
