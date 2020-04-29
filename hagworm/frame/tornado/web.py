@@ -81,7 +81,7 @@ class FormInjection:
     """表单注入器
     """
 
-    def __init__(self, form_cls=None, err_code=-1):
+    def __init__(self, form_cls=None, err_code: int = -1):
 
         if not issubclass(form_cls, Form):
             raise TypeError(r'Dot Implemented Form Interface')
@@ -92,7 +92,7 @@ class FormInjection:
     def __call__(self, func):
 
         @functools.wraps(func)
-        async def _wrapper(handler, *args, **kwargs):
+        async def _wrapper(handler: RequestBaseHandler, *args, **kwargs):
 
             form = self._form_cls(handler.request.arguments)
 
@@ -111,6 +111,43 @@ class FormInjection:
                 )
 
         return _wrapper
+
+
+class DebugHeader:
+    """调试信息注入器
+    """
+
+    def __call__(self, func):
+
+        @functools.wraps(func)
+        async def _wrapper(handler: RequestBaseHandler, *args, **kwargs):
+
+            if self._is_debug() is True:
+                self._receive_header(
+                    handler.get_header(r'Debug-Data')
+                )
+
+            await func(handler, *args, **kwargs)
+
+            if self._is_debug() is True:
+                handler.set_header(
+                    r'Debug-Data',
+                    self._get_debug_header()
+                )
+
+        return _wrapper
+
+    def _is_debug(self) -> bool:
+
+        raise NotImplementedError()
+
+    def _receive_header(self, data: str):
+
+        raise NotImplementedError()
+
+    def _get_debug_header(self) -> str:
+
+        raise NotImplementedError()
 
 
 class LogRequestMixin:
@@ -423,13 +460,13 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
 
         result = default
 
-        _argument = self.get_argument(name, None, True)
+        value = self.get_argument(name, None, True)
 
-        if result is not None:
+        if value is not None:
             try:
-                result = self.json_decode(_argument)
+                result = self.json_decode(value)
             except Exception as _:
-                self.log.debug(f'Invalid application/json argument({name}): {_argument}')
+                self.log.debug(f'Invalid application/json argument({name}): {value}')
 
         return result
 
