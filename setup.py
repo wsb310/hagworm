@@ -35,7 +35,7 @@ setuptools.setup(
         r'loguru==0.3.0',
         r'motor==2.0.0',
         r'numpy==1.18.2',
-        r'ntplib==0.3.3',
+        r'ntplib==0.3.4',
         r'objgraph==3.4.1',
         r'Pillow==6.1.0',
         r'psutil==5.6.3',
