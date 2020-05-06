@@ -27,6 +27,7 @@ def main():
     Launcher(
         router,
         ConfigDynamic.Port,
+        process_num=ConfigDynamic.ProcessNum,
         async_initialize=DataSource.initialize,
         debug=ConfigDynamic.Debug,
         gzip=ConfigDynamic.GZip,

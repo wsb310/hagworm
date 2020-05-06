@@ -78,6 +78,8 @@ class _Dynamic(Configure):
 
         self.Secret = self._parser.get(r'Base', r'Secret')
 
+        self.ProcessNum = self._parser.getint(r'Base', r'ProcessNum')
+
         ##################################################
         # 日志
 
