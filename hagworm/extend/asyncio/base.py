@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import copy
 import types
 import weakref
 import inspect
 import asyncio
 import functools
-
-import uvloop
 
 from contextvars import Context, ContextVar
 
@@ -15,6 +12,19 @@ from hagworm import package_slogan
 from hagworm import __version__ as package_version
 from hagworm.extend import base
 from hagworm.extend.interface import RunnableInterface
+
+
+def install_uvloop():
+    """尝试安装uvloop
+    """
+
+    try:
+        import uvloop
+    except ModuleNotFoundError:
+        Utils.log.warning(f'uvloop is not supported')
+    else:
+        uvloop.install()
+        Utils.log.success(f'uvloop {uvloop.__version__} installed')
 
 
 class Launcher(RunnableInterface):
@@ -46,12 +56,6 @@ class Launcher(RunnableInterface):
 
             Utils.log.level(log_level)
 
-        # 启用uvloop事件循环
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
-        self._event_loop = asyncio.get_event_loop()
-        self._event_loop.set_debug(debug)
-
         environment = Utils.environment()
 
         Utils.log.info(
@@ -60,6 +64,11 @@ class Launcher(RunnableInterface):
             f'python {environment["python"]}\n'
             f'system {" ".join(environment["system"])}'
         )
+
+        install_uvloop()
+
+        self._event_loop = asyncio.get_event_loop()
+        self._event_loop.set_debug(debug)
 
     def run(self, future):
 
