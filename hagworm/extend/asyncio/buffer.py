@@ -35,8 +35,16 @@ class QueueBuffer:
         self._data_list.append(data)
 
         if len(self._data_list) >= self._maxsize:
-            data_list, self._data_list = self._data_list, []
-            Utils.call_soon(self._run, data_list)
+            _data_list, self._data_list = self._data_list, []
+            Utils.call_soon(self._run, _data_list)
+
+    def extend(self, data_list):
+
+        self._data_list.extend(data_list)
+
+        if len(self._data_list) >= self._maxsize:
+            _data_list, self._data_list = self._data_list, []
+            Utils.call_soon(self._run, _data_list)
 
 
 class FileBuffer(ContextManager):
