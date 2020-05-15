@@ -18,6 +18,8 @@ from hagworm.extend.error import MySQLReadOnlyError
 from .base import Utils, WeakContextVar, AsyncContextManager, AsyncCirculator
 
 
+MONGO_POLL_WATER_LEVEL_WARNING_LINE = 0x08
+
 MYSQL_ERROR_RETRY_COUNT = 0x1f
 MYSQL_POLL_WATER_LEVEL_WARNING_LINE = 0x08
 
@@ -26,11 +28,22 @@ class MongoPool:
     """Mongo连接管理
     """
 
-    def __init__(self, host, username=None, password=None, *, min_pool_size=8, max_pool_size=32, **settings):
+    def __init__(
+            self, host, username=None, password=None,
+            *, name=None, min_pool_size=8, max_pool_size=32, max_idle_time=3600, wait_queue_timeout=10,
+            compressors=r'zlib', zlib_compression_level=6,
+            **settings
+    ):
+
+        self._name = name if name is not None else Utils.uuid1()[:8]
 
         settings[r'host'] = host
         settings[r'minPoolSize'] = min_pool_size
         settings[r'maxPoolSize'] = max_pool_size
+        settings[r'maxIdleTimeMS'] = max_idle_time * 1000
+        settings[r'waitQueueTimeoutMS'] = wait_queue_timeout * 1000
+        settings[r'compressors'] = compressors
+        settings[r'zlibCompressionLevel'] = zlib_compression_level
 
         if username and password:
             settings[r'username'] = username
@@ -38,9 +51,51 @@ class MongoPool:
 
         self._pool = AsyncIOMotorClient(**settings)
 
-        Utils.log.info(f'MongoDB {host} initialized')
+        for server in self._servers.values():
+            server.pool.remove_stale_sockets()
+
+        Utils.log.info(
+            f"Mongo {host} ({self._name}) initialized: {self._pool.min_pool_size}/{self._pool.max_pool_size}"
+        )
+
+    @property
+    def _servers(self):
+
+        return self._pool.delegate._topology._servers
+
+    def _echo_pool_info(self):
+
+        global MONGO_POLL_WATER_LEVEL_WARNING_LINE
+
+        for address, server in self._servers.items():
+
+            poll_size = len(server.pool.sockets) + server.pool.active_sockets
+
+            if (self._pool.max_pool_size - poll_size) < MONGO_POLL_WATER_LEVEL_WARNING_LINE:
+                Utils.log.warning(
+                    f'Mongo connection pool not enough ({self._name}){address}: '
+                    f'{poll_size}/{self._pool.max_pool_size}'
+                )
+            else:
+                Utils.log.debug(
+                    f'Mongo connection pool info ({self._name}){address}: '
+                    f'{poll_size}/{self._pool.max_pool_size}'
+                )
+
+    def reset(self):
+
+        for address, server in self._servers.items():
+
+            server.pool.reset()
+            server.pool.remove_stale_sockets()
+
+            Utils.log.info(
+                f'Mongo connection pool reset {address}: {len(server.pool.sockets)}/{self._pool.max_pool_size}'
+            )
 
     def get_database(self, db_name):
+
+        self._echo_pool_info()
 
         result = None
 
@@ -65,14 +120,15 @@ class MongoDelegate:
         result = False
 
         try:
-
             result = bool(await self._mongo_pool._pool.server_info())
-
         except Exception as err:
-
             Utils.log.error(err)
 
         return result
+
+    def reset_mongo_pool(self):
+
+        self._mongo_pool.reset()
 
     def get_mongo_database(self, db_name):
 
@@ -175,6 +231,21 @@ class MySQLPool:
 
         return self
 
+    def _echo_pool_info(self):
+
+        global MYSQL_POLL_WATER_LEVEL_WARNING_LINE
+
+        if (self._pool.maxsize - self._pool.size + self._pool.freesize) < MYSQL_POLL_WATER_LEVEL_WARNING_LINE:
+            Utils.log.warning(
+                f'MySQL connection pool not enough ({self._name}): '
+                f'{self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+            )
+        else:
+            Utils.log.debug(
+                f'MySQL connection pool info ({self._name}): '
+                f'{self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+            )
+
     async def health(self):
 
         result = False
@@ -202,18 +273,7 @@ class MySQLPool:
 
     async def get_sa_conn(self):
 
-        global MYSQL_POLL_WATER_LEVEL_WARNING_LINE
-
-        if (self._pool.maxsize - self._pool.size + self._pool.freesize) < MYSQL_POLL_WATER_LEVEL_WARNING_LINE:
-            Utils.log.warning(
-                f'MySQL connection pool not enough ({self._name}): '
-                f'{self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
-            )
-        else:
-            Utils.log.debug(
-                f'MySQL connection pool info ({self._name}): '
-                f'{self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
-            )
+        self._echo_pool_info()
 
         conn = await self._pool.acquire()
 

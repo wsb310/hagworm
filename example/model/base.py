@@ -18,7 +18,8 @@ class DataSource(Singleton, RedisDelegate, MongoDelegate, MySQLDelegate):
         MongoDelegate.__init__(
             self,
             ConfigStatic.MongoHost, ConfigStatic.MongoUser, ConfigStatic.MongoPasswd,
-            min_pool_size=ConfigStatic.MongoMinConn, max_pool_size=ConfigStatic.MongoMaxConn
+            min_pool_size=ConfigStatic.MongoMinConn, max_pool_size=ConfigStatic.MongoMaxConn,
+            max_idle_time=3600
         )
 
         MySQLDelegate.__init__(self)
