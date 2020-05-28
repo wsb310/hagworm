@@ -370,58 +370,70 @@ class Utils:
             return time.strftime(format_type, datetime.fromtimestamp(time_int, pytz.timezone(timezone)).timetuple())
 
     @classmethod
-    def radix24(cls, val):
+    def radix24(cls, val, align=0):
 
         base = cls.SAFE_STRING_BASE
 
-        num = int(val)
+        return cls.radix_n(val, base, 24, align)
 
-        if num <= 0:
-            return base[num]
+    @classmethod
+    def radix24_to_10(cls, val):
 
-        result = ''
+        base = cls.SAFE_STRING_BASE
 
-        while num > 0:
-            num, rem = divmod(num, 24)
-            result = base[rem] + result
-
-        return result
+        return cls.radix_n_to_10(val, base, 24)
 
     @classmethod
     def radix36(cls, val, align=0):
 
         base = string.digits + string.ascii_uppercase
 
-        num = int(val)
+        return cls.radix_n(val, base, 36, align)
 
-        if num <= 0:
-            return base[num]
+    @classmethod
+    def radix36_to_10(cls, val):
 
-        result = ''
+        base = string.digits + string.ascii_uppercase
 
-        while num > 0:
-            num, rem = divmod(num, 36)
-            result = base[rem] + result
-
-        return r'{0:0>{1:d}s}'.format(result, align)
+        return cls.radix_n_to_10(val, base, 36)
 
     @classmethod
     def radix62(cls, val, align=0):
 
         base = string.digits + string.ascii_letters
 
-        num = int(val)
+        return cls.radix_n(val, base, 62, align)
 
-        if num <= 0:
-            return base[num]
+    @classmethod
+    def radix62_to_10(cls, val):
+
+        base = string.digits + string.ascii_letters
+
+        return cls.radix_n_to_10(val, base, 62)
+
+    @classmethod
+    def radix_n(cls, val, base, radix, align=0):
+
+        num = abs(int(val))
 
         result = ''
 
         while num > 0:
-            num, rem = divmod(num, 62)
+            num, rem = divmod(num, radix)
             result = base[rem] + result
 
         return r'{0:0>{1:d}s}'.format(result, align)
+
+    @classmethod
+    def radix_n_to_10(cls, val, base, radix):
+
+        result = 0
+
+        for _str in val.strip():
+            rem = base.index(_str)
+            result = result * radix + rem
+
+        return result
 
     @classmethod
     def xml_encode(cls, dict_val, root_tag=r'root'):
