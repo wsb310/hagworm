@@ -42,6 +42,26 @@ from cacheout import LRUCache
 from .error import BaseError
 
 
+def fork_processes(num_processes):
+
+    pids = set()
+
+    for num in range(max(num_processes, 2)):
+
+        pid = os.fork()
+
+        if pid == 0:
+            return num
+        else:
+            pids.add(pid)
+
+    while pids:
+        pid, _ = os.wait()
+        pids.remove(pid)
+
+    sys.exit(0)
+
+
 class Utils:
     """基础工具类
 

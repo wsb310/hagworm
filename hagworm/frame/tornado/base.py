@@ -124,6 +124,11 @@ class _LauncherBase(TaskInterface):
 
         logging.getLogger(None).addHandler(_InterceptHandler())
 
+    @property
+    def process_id(self):
+
+        return self._process_id
+
     def start(self):
 
         if self._background_service is not None:

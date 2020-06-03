@@ -34,7 +34,7 @@ class Launcher(RunnableInterface):
 
     """
 
-    def __init__(self, log_file_path=None, log_level=r'INFO', log_file_num_backups=7, debug=False):
+    def __init__(self, log_file_path=None, log_level=r'INFO', log_file_num_backups=7, process_num=1, debug=False):
 
         if log_file_path:
 
@@ -56,6 +56,9 @@ class Launcher(RunnableInterface):
 
             Utils.log.level(log_level)
 
+        self._process_id = 0
+        self._process_num = max(process_num, 1)
+
         environment = Utils.environment()
 
         Utils.log.info(
@@ -67,12 +70,24 @@ class Launcher(RunnableInterface):
 
         install_uvloop()
 
+        if self._process_num > 1:
+            self._process_id = base.fork_processes(self._process_num)
+
         self._event_loop = asyncio.get_event_loop()
         self._event_loop.set_debug(debug)
 
+    @property
+    def process_id(self):
+
+        return self._process_id
+
     def run(self, future):
 
+        Utils.log.success(f'Start process no.{self._process_id}')
+
         self._event_loop.run_until_complete(future)
+
+        Utils.log.success(f'Stop process no.{self._process_id}')
 
 
 class Utils(base.Utils):

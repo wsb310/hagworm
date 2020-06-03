@@ -496,10 +496,12 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
         if status_code != 200:
             self.set_status(status_code)
 
+        result = None
+
         try:
             result = self.json_encode(chunk)
         except Exception as _:
-            result = None
+            self.log.error(f'json encode error: {chunk}')
 
         return self.finish(result)
 
@@ -558,7 +560,7 @@ class DownloadAgent(RequestBaseHandler, DownloadBuffer):
         try:
             result = os.path.split(self.urlparse.urlparse(url)[2])[1]
         except Exception as _:
-            pass
+            self.log.error(f'urlparse error: {url}')
 
         return result
 
