@@ -171,7 +171,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
             await self._close_conn(True)
 
-    async def execute(self, command, *args, **kwargs):
+    async def _safe_execute(self, func, *args, **kwargs):
 
         global REDIS_ERROR_RETRY_COUNT
 
@@ -183,7 +183,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
                 await self._init_conn()
 
-                result = await super().execute(command, *args, **kwargs)
+                result = await func(*args, **kwargs)
 
             except (ReplyError, MaxClientsError, AuthError, ReadOnlyError) as err:
 
@@ -209,6 +209,10 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
                 break
 
         return result
+
+    async def execute(self, command, *args, **kwargs):
+
+        return await self._safe_execute(super().execute, command, *args, **kwargs)
 
     def _val_encode(self, val):
 
@@ -238,15 +242,11 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     async def unwatch(self):
 
-        async with self.catch_error():
-            await self._init_conn()
-            return super().unwatch()
+        return await self._safe_execute(super().unwatch)
 
     async def watch(self, key, *keys):
 
-        async with self.catch_error():
-            await self._init_conn()
-            return super().watch()
+        return await self._safe_execute(super().watch, key, *keys)
 
     def multi_exec(self):
 
@@ -260,27 +260,19 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     async def subscribe(self, channel, *channels):
 
-        async with self.catch_error():
-            await self._init_conn()
-            return await super().subscribe(channel, *channels)
+        return await self._safe_execute(super().subscribe, channel, *channels)
 
     async def unsubscribe(self, channel, *channels):
 
-        async with self.catch_error():
-            await self._init_conn()
-            return await super().unsubscribe(channel, *channels)
+        return await self._safe_execute(super().unsubscribe, channel, *channels)
 
     async def psubscribe(self, pattern, *patterns):
 
-        async with self.catch_error():
-            await self._init_conn()
-            return await super().psubscribe(pattern, *patterns)
+        return await self._safe_execute(super().psubscribe, pattern, *patterns)
 
     async def punsubscribe(self, pattern, *patterns):
 
-        async with self.catch_error():
-            await self._init_conn()
-            return await super().punsubscribe(pattern, *patterns)
+        return await self._safe_execute(super().punsubscribe, pattern, *patterns)
 
     @property
     def channels(self):

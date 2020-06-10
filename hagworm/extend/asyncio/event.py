@@ -16,7 +16,7 @@ class DistributedEvent(EventDispatcher):
 
         self._redis_pool = redis_pool
 
-        self._channels = [f'event_bus_{Utils.md5_u32(channel_name)}_{channel}' for channel in range(channel_count)]
+        self._channels = [f'event_bus_{Utils.md5_u32(channel_name)}_{index}' for index in range(channel_count)]
 
         for channel in self._channels:
             Utils.create_task(self._event_listener(channel))
@@ -27,20 +27,18 @@ class DistributedEvent(EventDispatcher):
 
             async with self._redis_pool.get_client() as cache:
 
-                receiver = Receiver()
+                receiver, = await cache.subscribe(channel)
 
-                await cache.subscribe(
-                    receiver.channel(channel)
-                )
+                Utils.log.info(f'event bus channel({channel}) receiver created')
 
-                async for channel, message in receiver.iter():
+                async for message in receiver.iter():
                     await self._event_assigner(channel, message)
 
     async def _event_assigner(self, channel, message):
 
         message = Utils.pickle_loads(message)
 
-        Utils.log.debug(f'event handling => channel({channel.name.decode()}) message({message})')
+        Utils.log.debug(f'event handling => channel({channel}) message({message})')
 
         _type = message.get(r'type', r'')
         args = message.get(r'args', [])
