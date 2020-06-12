@@ -42,11 +42,11 @@ from cacheout import LRUCache
 from .error import BaseError
 
 
-def fork_processes(num_processes):
+def fork_processes(number, guardian=None):
 
     pids = set()
 
-    for num in range(max(num_processes, 2)):
+    for num in range(max(number, 2)):
 
         pid = os.fork()
 
@@ -55,9 +55,15 @@ def fork_processes(num_processes):
         else:
             pids.add(pid)
 
-    while pids:
-        pid, _ = os.wait()
-        pids.remove(pid)
+    if guardian is None:
+
+        while pids:
+            pid, _ = os.wait()
+            pids.remove(pid)
+
+    else:
+
+        guardian(pids)
 
     sys.exit(0)
 
@@ -934,6 +940,8 @@ class ContextManager:
 
     def __enter__(self):
 
+        self._context_initialize()
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -949,6 +957,10 @@ class ContextManager:
             Utils.log.exception(exc_value)
 
             return True
+
+    def _context_initialize(self):
+
+        pass
 
     def _context_release(self):
 

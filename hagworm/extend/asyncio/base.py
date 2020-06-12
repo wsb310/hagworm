@@ -34,7 +34,14 @@ class Launcher(RunnableInterface):
 
     """
 
-    def __init__(self, log_file_path=None, log_level=r'INFO', log_file_num_backups=7, process_num=1, debug=False):
+    def __init__(self,
+                 log_file_path=None, log_level=r'INFO', log_file_num_backups=7,
+                 process_number=1, process_guardian=None,
+                 debug=False
+                 ):
+
+        self._process_id = 0
+        self._process_number = process_number
 
         if log_file_path:
 
@@ -56,9 +63,6 @@ class Launcher(RunnableInterface):
 
             Utils.log.level(log_level)
 
-        self._process_id = 0
-        self._process_num = max(process_num, 1)
-
         environment = Utils.environment()
 
         Utils.log.info(
@@ -70,8 +74,8 @@ class Launcher(RunnableInterface):
 
         install_uvloop()
 
-        if self._process_num > 1:
-            self._process_id = base.fork_processes(self._process_num)
+        if self._process_number > 1:
+            self._process_id = base.fork_processes(self._process_number, process_guardian)
 
         self._event_loop = asyncio.get_event_loop()
         self._event_loop.set_debug(debug)
@@ -81,11 +85,11 @@ class Launcher(RunnableInterface):
 
         return self._process_id
 
-    def run(self, future):
+    def run(self, func, *args, **kwargs):
 
         Utils.log.success(f'Start process no.{self._process_id}')
 
-        self._event_loop.run_until_complete(future)
+        self._event_loop.run_until_complete(func(*args, **kwargs))
 
         Utils.log.success(f'Stop process no.{self._process_id}')
 
@@ -598,6 +602,8 @@ class AsyncContextManager:
 
     async def __aenter__(self):
 
+        await self._context_initialize()
+
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
@@ -613,6 +619,10 @@ class AsyncContextManager:
             Utils.log.exception(exc_value)
 
             return True
+
+    async def _context_initialize(self):
+
+        pass
 
     async def _context_release(self):
 
