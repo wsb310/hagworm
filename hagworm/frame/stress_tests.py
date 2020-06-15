@@ -1,40 +1,46 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
 
 from terminal_table import Table
 
 from hagworm.extend.interface import RunnableInterface
 from hagworm.extend.asyncio.base import Launcher as _Launcher
-from hagworm.extend.asyncio.base import Utils, MultiTasks, AsyncCirculator
+from hagworm.extend.asyncio.base import Utils, MultiTasks, AsyncCirculatorForSecond
 from hagworm.extend.asyncio.zmq import Subscriber, Publisher
 
 
+SIGNAL_PROTOCOL = r'tcp'
 SIGNAL_PORT = 3721
+HIGH_WATER_MARK = 51200
 
 
-def _guardian(pids):
+class Guardian(RunnableInterface):
 
-    async def _func():
+    async def _do_polling(self, pids, hwm):
 
-        nonlocal pids
+        finished = set()
 
         with Reporter() as reporter:
 
-            async for _ in AsyncCirculator():
+            reporter.set_hwm(hwm)
 
-                if len(pids) == 0:
-                    break
+            async for _ in AsyncCirculatorForSecond():
 
                 for pid in pids:
                     if os.waitpid(pid, os.WNOHANG)[0] == pid:
-                        pids.remove(pid)
-                        break
+                        finished.add(pid)
+
+                if len(pids - finished) == 0:
+                    break
 
             Utils.log.info(f'\n{reporter.get_report_table()}')
 
-    Utils.run_until_complete(_func())
+    def run(self, pids):
+
+        global HIGH_WATER_MARK
+
+        Utils.run_until_complete(self._do_polling(pids, HIGH_WATER_MARK))
 
 
 class Launcher(_Launcher):
@@ -46,7 +52,7 @@ class Launcher(_Launcher):
                  ):
 
         if process_guardian is None:
-            process_guardian = _guardian
+            process_guardian = Guardian().run
 
         super().__init__(
             log_file_path, log_level, log_file_num_backups,
@@ -83,9 +89,11 @@ class Reporter(Subscriber):
 
     def __init__(self):
 
-        global SIGNAL_PORT
+        global SIGNAL_PROTOCOL, SIGNAL_PORT, HIGH_WATER_MARK
 
-        super().__init__(f'tcp://*:{SIGNAL_PORT}', True)
+        super().__init__(f'{SIGNAL_PROTOCOL}://*:{SIGNAL_PORT}', True)
+
+        self.set_hwm(HIGH_WATER_MARK)
 
         self._reports = {}
 
@@ -171,10 +179,10 @@ class Runner(Utils, RunnableInterface):
 
     def __init__(self, task_cls: TaskInterface):
 
-        global SIGNAL_PORT
+        global SIGNAL_PROTOCOL, SIGNAL_PORT
 
         self._task_cls = task_cls
-        self._publisher = Publisher(f'tcp://localhost:{SIGNAL_PORT}', False)
+        self._publisher = Publisher(f'{SIGNAL_PROTOCOL}://localhost:{SIGNAL_PORT}', False)
 
     async def run(self, times, task_num):
 

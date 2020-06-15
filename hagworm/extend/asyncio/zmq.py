@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import zmq
-import zmq.asyncio
 
 from concurrent.futures import CancelledError
+from zmq.asyncio import Context
 
 from hagworm.extend.base import ContextManager
 from hagworm.extend.asyncio.base import Utils
@@ -15,7 +15,7 @@ class _SocketBase(ContextManager):
 
         self._name = name if name else Utils.uuid1()[:8]
 
-        self._context = zmq.asyncio.Context()
+        self._context = Context.instance()
         self._socket = self._context.socket(socket_type)
 
         self._address = address
@@ -40,6 +40,10 @@ class _SocketBase(ContextManager):
 
         if not self._socket.closed:
             self._socket.close()
+
+    def set_hwm(self, val):
+
+        self._socket.set_hwm(val)
 
 
 class Subscriber(_SocketBase):
