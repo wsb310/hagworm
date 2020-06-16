@@ -11,6 +11,7 @@ from contextvars import Context, ContextVar
 from hagworm import package_slogan
 from hagworm import __version__ as package_version
 from hagworm.extend import base
+from hagworm.extend.cache import StackCache
 from hagworm.extend.interface import RunnableInterface
 
 
@@ -679,84 +680,6 @@ class AsyncFuncWrapper(base.FuncWrapper):
                 Utils.log.error(err)
 
 
-class Transaction(AsyncContextManager):
-    """事务对象
-
-    使用异步上下文实现的一个事务对象，可以设置commit和rollback回调
-    未显示commit的情况下，会自动rollback
-
-    """
-
-    def __init__(self):
-
-        self._commit_callbacks = []
-        self._rollback_callbacks = []
-
-    def _clear_callbacks(self):
-
-        self._commit_callbacks.clear()
-        self._rollback_callbacks.clear()
-
-        self._commit_callbacks = self._rollback_callbacks = None
-
-    async def _context_release(self):
-
-        await self.rollback()
-
-    def add_commit_callback(self, _callable):
-
-        if self._commit_callbacks is None:
-            return False
-
-        self._commit_callbacks.append(_callable)
-
-        return True
-
-    def add_rollback_callback(self, _callable):
-
-        if self._rollback_callbacks is None:
-            return False
-
-        self._rollback_callbacks.append(_callable)
-
-        return True
-
-    async def commit(self):
-
-        if self._commit_callbacks is None:
-            return
-
-        callbacks = self._commit_callbacks.copy()
-
-        self._clear_callbacks()
-
-        for _callable in callbacks:
-            with base.catch_error():
-                await Utils.awaitable_wrapper(
-                    _callable()
-                )
-
-    async def rollback(self):
-
-        if self._rollback_callbacks is None:
-            return
-
-        callbacks = self._rollback_callbacks.copy()
-
-        self._clear_callbacks()
-
-        for _callable in callbacks:
-            with base.catch_error():
-                await Utils.awaitable_wrapper(
-                    _callable()
-                )
-
-    def bind(self, trx):
-
-        self.add_commit_callback(trx.commit)
-        self.add_rollback_callback(trx.rollback)
-
-
 class FuncCache:
     """函数缓存
 
@@ -766,7 +689,7 @@ class FuncCache:
 
     def __init__(self, maxsize=0xff, ttl=10):
 
-        self._cache = base.StackCache(maxsize, ttl)
+        self._cache = StackCache(maxsize, ttl)
 
     def __call__(self, func):
 

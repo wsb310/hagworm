@@ -11,6 +11,8 @@ from contextlib import asynccontextmanager
 
 from .base import Utils, WeakContextVar, AsyncContextManager, AsyncCirculator
 from .event import DistributedEvent
+from .ntp import NTPClient
+from .transaction import Transaction
 
 
 REDIS_ERROR_RETRY_COUNT = 0x1f
@@ -498,3 +500,91 @@ class ShareCache(AsyncContextManager):
                 await self._locker.release()
 
         self._cache = self._locker = None
+
+
+class PeriodCounter:
+
+    def __init__(self, ntp_client: NTPClient, cache_pool: RedisPool, time_slice: int, key_prefix: str = r''):
+
+        self._ntp_client = ntp_client
+        self._cache_pool = cache_pool
+
+        self._time_slice = time_slice
+        self._key_prefix = key_prefix
+
+    def _get_key(self, key: str = None) -> str:
+
+        time_period = Utils.math.floor(self._ntp_client.timestamp / self._time_slice)
+
+        if key is None:
+            return f'{self._key_prefix}_{time_period}'
+        else:
+            return f'{self._key_prefix}_{key}_{time_period}'
+
+    async def _incr(self, key: str, val: str) -> int:
+
+        res = None
+
+        with self._cache_pool.get_client() as cache:
+            pipeline = cache.pipeline()
+            pipeline.incrby(key, val)
+            pipeline.expire(key, max(self._time_slice, 60))
+            res, _ = await pipeline.execute()
+
+        return res
+
+    async def _decr(self, key: str, val: str) -> int:
+
+        res = None
+
+        with self._cache_pool.get_client() as cache:
+            pipeline = cache.pipeline()
+            pipeline.decrby(key, val)
+            pipeline.expire(key, max(self._time_slice, 60))
+            res, _ = await pipeline.execute()
+
+        return res
+
+    async def incr(self, val: str, key: str = None):
+
+        _key = self._get_key(key)
+
+        res = await self._incr(_key, val)
+
+        return res
+
+    async def incr_with_trx(self, val: str, key: str = None) -> (int, Transaction):
+
+        _key = self._get_key(key)
+
+        res = await self._incr(_key, val)
+
+        if res is not None:
+            trx = Transaction()
+            trx.add_rollback_callback(self._decr, _key, val)
+        else:
+            trx = None
+
+        return res, trx
+
+    async def decr(self, val: str, key: str = None) -> int:
+
+        _key = self._get_key(key)
+
+        res = await self._decr(_key, val)
+
+        return res
+
+    async def decr_with_trx(self, val: str, key: str = None) -> (int, Transaction):
+
+        _key = self._get_key(key)
+
+        res = await self._decr(_key, val)
+
+        if res is not None:
+            trx = Transaction()
+            trx.add_rollback_callback(self._incr, _key, val)
+        else:
+            trx = None
+
+        return res, trx

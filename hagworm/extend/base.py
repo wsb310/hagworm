@@ -37,7 +37,6 @@ from collections import Iterable, OrderedDict
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from stdnum import luhn
-from cacheout import LRUCache
 
 from .error import BaseError
 
@@ -877,7 +876,7 @@ class Ignore(BaseError):
 
 
 @contextmanager
-def catch_error(level=r'exception'):
+def catch_error():
     """异常捕获
 
     通过with语句捕获异常，代码更清晰，还可以使用Ignore异常安全的跳出with代码块
@@ -1006,35 +1005,3 @@ class FuncWrapper:
             return True
         else:
             return False
-
-
-class StackCache:
-    """堆栈缓存
-
-    使用运行内存作为高速缓存，可有效提高并发的处理能力
-
-    """
-
-    def __init__(self, maxsize=0xff, ttl=None):
-
-        self._cache = LRUCache(maxsize, ttl)
-
-    def has(self, key):
-
-        return self._cache.has(key)
-
-    def get(self, key, default=None):
-
-        return self._cache.get(key, default)
-
-    def set(self, key, val, ttl=None):
-
-        self._cache.set(key, val, ttl)
-
-    def delete(self, key):
-
-        return self._cache.delete(key)
-
-    def size(self):
-
-        return self._cache.size()

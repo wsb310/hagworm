@@ -3,7 +3,8 @@
 import pytest
 
 from hagworm.extend.asyncio.base import Utils
-from hagworm.extend.base import catch_error, Ignore, ContextManager, FuncWrapper, StackCache
+from hagworm.extend.base import catch_error, Ignore, ContextManager, FuncWrapper
+from hagworm.extend.cache import StackCache
 
 
 pytestmark = pytest.mark.asyncio
