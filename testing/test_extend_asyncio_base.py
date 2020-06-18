@@ -5,7 +5,8 @@ import pytest
 from hagworm.extend.base import Ignore
 from hagworm.extend.asyncio.base import Utils, MultiTasks, SliceTasks, QueueTasks, ShareFuture, async_adapter
 from hagworm.extend.asyncio.base import FutureWithTimeout, AsyncConstructor, AsyncCirculator, AsyncCirculatorForSecond
-from hagworm.extend.asyncio.base import AsyncContextManager, AsyncFuncWrapper, Transaction, FuncCache, TimeDiff
+from hagworm.extend.asyncio.base import AsyncContextManager, AsyncFuncWrapper, FuncCache, TimeDiff
+from hagworm.extend.asyncio.transaction import Transaction
 
 
 pytestmark = pytest.mark.asyncio

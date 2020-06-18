@@ -37,9 +37,34 @@ from collections import Iterable, OrderedDict
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from stdnum import luhn
-from cacheout import LRUCache
 
 from .error import BaseError
+
+
+def fork_processes(number, guardian=None):
+
+    pids = set()
+
+    for num in range(max(number, 2)):
+
+        pid = os.fork()
+
+        if pid == 0:
+            return num
+        else:
+            pids.add(pid)
+
+    if guardian is None:
+
+        while pids:
+            pid, _ = os.wait()
+            pids.remove(pid)
+
+    else:
+
+        guardian(pids)
+
+    sys.exit(0)
 
 
 class Utils:
@@ -109,14 +134,14 @@ class Utils:
         )
 
     @classmethod
-    def json_encode(cls, val):
+    def json_encode(cls, val, **kwargs):
 
-        return json.dumps(val).replace(r'</', r'<\\/')
+        return json.dumps(val, **kwargs).replace(r'</', r'<\\/')
 
     @classmethod
-    def json_decode(cls, val):
+    def json_decode(cls, val, **kwargs):
 
-        return json.loads(cls.basestring(val))
+        return json.loads(cls.basestring(val), **kwargs)
 
     @classmethod
     def today(cls, origin=False):
@@ -370,58 +395,70 @@ class Utils:
             return time.strftime(format_type, datetime.fromtimestamp(time_int, pytz.timezone(timezone)).timetuple())
 
     @classmethod
-    def radix24(cls, val):
+    def radix24(cls, val, align=0):
 
         base = cls.SAFE_STRING_BASE
 
-        num = int(val)
+        return cls.radix_n(val, base, 24, align)
 
-        if num <= 0:
-            return base[num]
+    @classmethod
+    def radix24_to_10(cls, val):
 
-        result = ''
+        base = cls.SAFE_STRING_BASE
 
-        while num > 0:
-            num, rem = divmod(num, 24)
-            result = base[rem] + result
-
-        return result
+        return cls.radix_n_to_10(val, base, 24)
 
     @classmethod
     def radix36(cls, val, align=0):
 
         base = string.digits + string.ascii_uppercase
 
-        num = int(val)
+        return cls.radix_n(val, base, 36, align)
 
-        if num <= 0:
-            return base[num]
+    @classmethod
+    def radix36_to_10(cls, val):
 
-        result = ''
+        base = string.digits + string.ascii_uppercase
 
-        while num > 0:
-            num, rem = divmod(num, 36)
-            result = base[rem] + result
-
-        return r'{0:0>{1:d}s}'.format(result, align)
+        return cls.radix_n_to_10(val, base, 36)
 
     @classmethod
     def radix62(cls, val, align=0):
 
         base = string.digits + string.ascii_letters
 
-        num = int(val)
+        return cls.radix_n(val, base, 62, align)
 
-        if num <= 0:
-            return base[num]
+    @classmethod
+    def radix62_to_10(cls, val):
+
+        base = string.digits + string.ascii_letters
+
+        return cls.radix_n_to_10(val, base, 62)
+
+    @classmethod
+    def radix_n(cls, val, base, radix, align=0):
+
+        num = abs(int(val))
 
         result = ''
 
         while num > 0:
-            num, rem = divmod(num, 62)
+            num, rem = divmod(num, radix)
             result = base[rem] + result
 
         return r'{0:0>{1:d}s}'.format(result, align)
+
+    @classmethod
+    def radix_n_to_10(cls, val, base, radix):
+
+        result = 0
+
+        for _str in val.strip():
+            rem = base.index(_str)
+            result = result * radix + rem
+
+        return result
 
     @classmethod
     def xml_encode(cls, dict_val, root_tag=r'root'):
@@ -839,7 +876,7 @@ class Ignore(BaseError):
 
 
 @contextmanager
-def catch_error(level=r'exception'):
+def catch_error():
     """异常捕获
 
     通过with语句捕获异常，代码更清晰，还可以使用Ignore异常安全的跳出with代码块
@@ -902,6 +939,8 @@ class ContextManager:
 
     def __enter__(self):
 
+        self._context_initialize()
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -917,6 +956,10 @@ class ContextManager:
             Utils.log.exception(exc_value)
 
             return True
+
+    def _context_initialize(self):
+
+        pass
 
     def _context_release(self):
 
@@ -962,35 +1005,3 @@ class FuncWrapper:
             return True
         else:
             return False
-
-
-class StackCache:
-    """堆栈缓存
-
-    使用运行内存作为高速缓存，可有效提高并发的处理能力
-
-    """
-
-    def __init__(self, maxsize=0xff, ttl=None):
-
-        self._cache = LRUCache(maxsize, ttl)
-
-    def has(self, key):
-
-        return self._cache.has(key)
-
-    def get(self, key, default=None):
-
-        return self._cache.get(key, default)
-
-    def set(self, key, val, ttl=None):
-
-        self._cache.set(key, val, ttl)
-
-    def delete(self, key):
-
-        return self._cache.delete(key)
-
-    def size(self):
-
-        return self._cache.size()

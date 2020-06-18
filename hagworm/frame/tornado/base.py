@@ -4,7 +4,6 @@ import signal
 import asyncio
 import logging
 
-import uvloop
 import jinja2
 
 from tornado_jinja2 import Jinja2Loader
@@ -20,6 +19,7 @@ from hagworm import package_slogan
 from hagworm import __version__ as package_version
 from hagworm.extend.base import Utils
 from hagworm.extend.interface import TaskInterface
+from hagworm.extend.asyncio.base import install_uvloop
 from hagworm.frame.tornado.web import LogRequestMixin
 
 
@@ -83,6 +83,10 @@ class _LauncherBase(TaskInterface):
             f'system {" ".join(environment["system"])}'
         )
 
+        install_uvloop()
+
+        self._event_loop = None
+
     def _init_logger(self, log_level, log_handler=None, log_file_path=None, log_file_num_backups=7):
 
         if log_handler or log_file_path:
@@ -119,6 +123,11 @@ class _LauncherBase(TaskInterface):
             Utils.log.level(log_level)
 
         logging.getLogger(None).addHandler(_InterceptHandler())
+
+    @property
+    def process_id(self):
+
+        return self._process_id
 
     def start(self):
 
@@ -200,9 +209,6 @@ class Launcher(_LauncherBase):
             self._process_id = fork_processes(self._process_num)
 
         options.parse_command_line()
-
-        # 启用uvloop事件循环
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
         AsyncIOMainLoop().install()
 

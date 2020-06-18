@@ -21,8 +21,8 @@ class STATE(Enum):
     FAILURE = 0x03
 
 
-_DEFAULT_TIMEOUT = aiohttp.client.ClientTimeout(total=60, connect=10, sock_read=60, sock_connect=10)
-_DOWNLOAD_TIMEOUT = aiohttp.client.ClientTimeout(total=600, connect=10, sock_read=600, sock_connect=10)
+DEFAULT_TIMEOUT = aiohttp.client.ClientTimeout(total=60, connect=10, sock_read=60, sock_connect=10)
+DOWNLOAD_TIMEOUT = aiohttp.client.ClientTimeout(total=600, connect=10, sock_read=600, sock_connect=10)
 
 _CA_FILE = os.path.join(
     os.path.split(os.path.abspath(__file__))[0],
@@ -68,14 +68,16 @@ class _HTTPClient:
     """HTTP客户端基类
     """
 
-    def __init__(self, retry_count=5, timeout=_DEFAULT_TIMEOUT, **kwargs):
+    def __init__(self, retry_count=5, timeout=None, **kwargs):
+
+        global DEFAULT_TIMEOUT
 
         self._ssl_context = ssl.create_default_context(cafile=_CA_FILE)
 
         self._retry_count = retry_count
 
         self._session_config = kwargs
-        self._session_config[r'timeout'] = timeout
+        self._session_config[r'timeout'] = timeout if timeout is not None else DEFAULT_TIMEOUT
         self._session_config.setdefault(r'raise_for_status', True)
 
     async def _sleep_for_retry(self, times):
@@ -352,7 +354,7 @@ class HTTPClientPool(HTTPClient):
 
     def __init__(self,
                  retry_count=5, use_dns_cache=True, ttl_dns_cache=10,
-                 limit=100, limit_per_host=0, timeout=_DEFAULT_TIMEOUT,
+                 limit=100, limit_per_host=0, timeout=None,
                  **kwargs
                  ):
 
@@ -397,9 +399,15 @@ class Downloader(_HTTPClient):
     """HTTP文件下载器
     """
 
-    def __init__(self, file, retry_count=5, timeout=_DOWNLOAD_TIMEOUT, **kwargs):
+    def __init__(self, file, retry_count=5, timeout=None, **kwargs):
 
-        super().__init__(retry_count, timeout, **kwargs)
+        global DOWNLOAD_TIMEOUT
+
+        super().__init__(
+            retry_count,
+            timeout if timeout is not None else DOWNLOAD_TIMEOUT,
+            **kwargs
+        )
 
         self._file = file
 
@@ -486,9 +494,16 @@ class DownloadBuffer(ContextManager, Downloader):
     """HTTP文件下载器(临时文件版)
     """
 
-    def __init__(self, timeout=_DOWNLOAD_TIMEOUT, **kwargs):
+    def __init__(self, timeout=None, **kwargs):
 
-        super().__init__(FileBuffer(), 1, timeout, **kwargs)
+        global DOWNLOAD_TIMEOUT
+
+        super().__init__(
+            FileBuffer(),
+            1,
+            timeout if timeout is not None else DOWNLOAD_TIMEOUT,
+            **kwargs
+        )
 
     def _context_release(self):
 

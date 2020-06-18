@@ -24,6 +24,7 @@ class Default(RequestBaseHandler):
     def delete(self):
 
         Utils.call_soon(DataSource().reset_mysql_pool)
+        Utils.call_soon(DataSource().reset_mongo_pool)
 
 
 class Download(DownloadAgent):

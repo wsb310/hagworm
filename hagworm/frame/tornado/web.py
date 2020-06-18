@@ -3,15 +3,21 @@
 import os
 import json
 import functools
+import aiohttp
+
+from aiohttp.web_exceptions import HTTPBadGateway
 
 from tornado.web import RequestHandler
 from tornado.websocket import WebSocketHandler
 
 from hagworm.extend.struct import Result
 from hagworm.extend.asyncio.base import Utils
-from hagworm.extend.asyncio.net import DownloadBuffer
+from hagworm.extend.asyncio.net import DownloadBuffer, HTTPClientPool
 
 from wtforms_tornado import Form
+
+
+PROXY_IGNORE_HEADERS = (r'CONTENT-ENCODING', r'TRANSFER-ENCODING',)
 
 
 def json_wraps(func):
@@ -75,7 +81,7 @@ class FormInjection:
     """表单注入器
     """
 
-    def __init__(self, form_cls=None, err_code=-1):
+    def __init__(self, form_cls=None, err_code: int = -1):
 
         if not issubclass(form_cls, Form):
             raise TypeError(r'Dot Implemented Form Interface')
@@ -86,7 +92,7 @@ class FormInjection:
     def __call__(self, func):
 
         @functools.wraps(func)
-        async def _wrapper(handler, *args, **kwargs):
+        async def _wrapper(handler: RequestBaseHandler, *args, **kwargs):
 
             form = self._form_cls(handler.request.arguments)
 
@@ -100,11 +106,48 @@ class FormInjection:
             else:
 
                 return handler.write_json(
-                    Result(self._err_code, form.errors),
+                    Result(self._err_code, extra=form.errors),
                     400
                 )
 
         return _wrapper
+
+
+class DebugHeader:
+    """调试信息注入器
+    """
+
+    def __call__(self, func):
+
+        @functools.wraps(func)
+        async def _wrapper(handler: RequestBaseHandler, *args, **kwargs):
+
+            if self._is_debug() is True:
+                self._receive_header(
+                    handler.get_header(r'Debug-Data')
+                )
+
+            await func(handler, *args, **kwargs)
+
+            if self._is_debug() is True:
+                handler.set_header(
+                    r'Debug-Data',
+                    self._get_debug_header()
+                )
+
+        return _wrapper
+
+    def _is_debug(self) -> bool:
+
+        raise NotImplementedError()
+
+    def _receive_header(self, data: str):
+
+        raise NotImplementedError()
+
+    def _get_debug_header(self) -> str:
+
+        raise NotImplementedError()
 
 
 class LogRequestMixin:
@@ -189,6 +232,10 @@ class _BaseHandlerMixin(Utils):
         result = self.get_header(r'Content-Length', r'')
 
         return int(result) if result.isdigit() else 0
+
+    @property
+    def headers(self):
+        return self.request.headers
 
     def get_header(self, name, default=None):
         """
@@ -413,13 +460,13 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
 
         result = default
 
-        _argument = self.get_argument(name, None, True)
+        value = self.get_argument(name, None, True)
 
-        if result is not None:
+        if value is not None:
             try:
-                result = self.json_decode(_argument)
+                result = self.json_decode(value)
             except Exception as _:
-                self.log.debug(f'Invalid application/json argument({name}): {_argument}')
+                self.log.debug(f'Invalid application/json argument({name}): {value}')
 
         return result
 
@@ -449,10 +496,12 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
         if status_code != 200:
             self.set_status(status_code)
 
+        result = None
+
         try:
             result = self.json_encode(chunk)
         except Exception as _:
-            result = None
+            self.log.error(f'json encode error: {chunk}')
 
         return self.finish(result)
 
@@ -481,7 +530,8 @@ class DownloadAgent(RequestBaseHandler, DownloadBuffer):
     async def _handle_response(self, response):
 
         for key, val in response.headers.items():
-            self.set_header(key, val)
+            if key.upper() not in PROXY_IGNORE_HEADERS:
+                self.set_header(key, val)
 
         return await DownloadBuffer._handle_response(self, response)
 
@@ -510,7 +560,7 @@ class DownloadAgent(RequestBaseHandler, DownloadBuffer):
         try:
             result = os.path.split(self.urlparse.urlparse(url)[2])[1]
         except Exception as _:
-            pass
+            self.log.error(f'urlparse error: {url}')
 
         return result
 
@@ -547,3 +597,103 @@ class DownloadAgent(RequestBaseHandler, DownloadBuffer):
         finally:
 
             self.finish()
+
+
+class HTTPProxy(HTTPClientPool):
+    """简易的HTTP代理类，带连接池功能
+    """
+
+    def __init__(self,
+                 use_dns_cache=True, ttl_dns_cache=10,
+                 limit=100, limit_per_host=0, timeout=None,
+                 **kwargs
+                 ):
+
+        super().__init__(0, use_dns_cache, ttl_dns_cache, limit, limit_per_host, timeout, **kwargs)
+
+    async def send_request(self, method: str, url: str, handler: RequestBaseHandler, **settings) -> int:
+
+        global PROXY_IGNORE_HEADERS
+
+        result = 0
+
+        settings[r'data'] = handler.body
+        settings[r'params'] = handler.query
+
+        headers = dict(handler.headers)
+        headers[r'Host'] = Utils.urlparse.urlparse(url).netloc
+        settings[r'headers'] = headers
+
+        settings.setdefault(r'ssl', self._ssl_context)
+
+        try:
+
+            async with aiohttp.ClientSession(**self._session_config) as _session:
+
+                async with _session.request(method, url, **settings) as _response:
+
+                    for key, val in _response.headers.items():
+                        if key.upper() not in PROXY_IGNORE_HEADERS:
+                            handler.set_header(key, val)
+
+                    while True:
+
+                        chunk = await _response.content.read(65536)
+
+                        if chunk:
+                            handler.write(chunk)
+                            await handler.flush()
+                        else:
+                            break
+
+                    handler.finish()
+
+                    result = _response.status
+
+            Utils.log.info(f'{method} {url} => status:{_response.status}')
+
+        except aiohttp.ClientResponseError as err:
+
+            Utils.log.error(err)
+
+            handler.send_error(err.status, reason=err.message)
+
+            result = err.status
+
+        except Exception as err:
+
+            Utils.log.error(err)
+
+            handler.send_error(HTTPBadGateway.status_code, reason=r'Proxy Internal Error')
+
+            result = HTTPBadGateway.status_code
+
+        return result
+
+    async def get(self, url: str, handler: RequestBaseHandler) -> int:
+
+        return await self.send_request(aiohttp.hdrs.METH_GET, url, handler)
+
+    async def options(self, url: str, handler: RequestBaseHandler) -> int:
+
+        return await self.send_request(aiohttp.hdrs.METH_OPTIONS, url, handler)
+
+    async def head(self, url: str, handler: RequestBaseHandler) -> int:
+
+        return await self.send_request(aiohttp.hdrs.METH_HEAD, url, handler)
+
+    async def post(self, url: str, handler: RequestBaseHandler) -> int:
+
+        return await self.send_request(aiohttp.hdrs.METH_POST, url, handler)
+
+    async def put(self, url: str, handler: RequestBaseHandler) -> int:
+
+        return await self.send_request(aiohttp.hdrs.METH_PUT, url, handler)
+
+    async def patch(self, url: str, handler: RequestBaseHandler) -> int:
+
+        return await self.send_request(aiohttp.hdrs.METH_PATCH, url, handler)
+
+    async def delete(self, url: str, handler: RequestBaseHandler) -> int:
+
+        return await self.send_request(aiohttp.hdrs.METH_DELETE, url, handler)

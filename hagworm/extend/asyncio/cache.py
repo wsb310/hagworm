@@ -4,12 +4,15 @@ import aioredis
 
 from aioredis.util import _NOTSET
 from aioredis.commands.string import StringCommandsMixin
+from aioredis.commands.transaction import Pipeline, MultiExec
 from aioredis.errors import ReplyError, MaxClientsError, AuthError, ReadOnlyError
 
 from contextlib import asynccontextmanager
 
 from .base import Utils, WeakContextVar, AsyncContextManager, AsyncCirculator
 from .event import DistributedEvent
+from .ntp import NTPClient
+from .transaction import Transaction
 
 
 REDIS_ERROR_RETRY_COUNT = 0x1f
@@ -20,7 +23,7 @@ class RedisPool:
     """Redis连接管理
     """
 
-    def __init__(self, address, password=None, *, minsize=8, maxsize=32, db=0, expire=3600, key_prefix=r'', **settings):
+    def __init__(self, address, password=None, *, minsize=8, maxsize=32, db=0, expire=0, key_prefix=None, **settings):
 
         self._pool = None
         self._expire = expire
@@ -116,7 +119,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     def __init__(self, pool, expire, key_prefix):
 
-        aioredis.Redis.__init__(self, None)
+        super().__init__(None)
 
         self._pool = pool
 
@@ -130,7 +133,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
         if self._pool_or_conn is None and self._pool:
 
-            if self._pool.freesize < REDIS_POOL_WATER_LEVEL_WARNING_LINE:
+            if (self._pool.maxsize - self._pool.size + self._pool.freesize) < REDIS_POOL_WATER_LEVEL_WARNING_LINE:
                 Utils.log.warning(
                     f'Redis connection pool not enough: {self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
                 )
@@ -170,7 +173,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
             await self._close_conn(True)
 
-    async def execute(self, command, *args, **kwargs):
+    async def _safe_execute(self, func, *args, **kwargs):
 
         global REDIS_ERROR_RETRY_COUNT
 
@@ -182,7 +185,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
                 await self._init_conn()
 
-                result = await super().execute(command, *args, **kwargs)
+                result = await func(*args, **kwargs)
 
             except (ReplyError, MaxClientsError, AuthError, ReadOnlyError) as err:
 
@@ -209,6 +212,10 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
         return result
 
+    async def execute(self, command, *args, **kwargs):
+
+        return await self._safe_execute(super().execute, command, *args, **kwargs)
+
     def _val_encode(self, val):
 
         return Utils.pickle_dumps(val)
@@ -233,39 +240,41 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
         return MLock(self, key, expire)
 
-    # PUB/SUB COMMANDS
+    # Transaction commands
+
+    async def unwatch(self):
+
+        return await self._safe_execute(super().unwatch)
+
+    async def watch(self, key, *keys):
+
+        return await self._safe_execute(super().watch, key, *keys)
+
+    def multi_exec(self):
+
+        return MultiExec(self._pool, aioredis.Redis, loop=self._pool._loop)
+
+    def pipeline(self):
+
+        return Pipeline(self._pool, aioredis.Redis, loop=self._pool._loop)
+
+    # Pub/Sub commands
 
     async def subscribe(self, channel, *channels):
 
-        async with self.catch_error():
-
-            await self._init_conn()
-
-            return await super().subscribe(channel, *channels)
+        return await self._safe_execute(super().subscribe, channel, *channels)
 
     async def unsubscribe(self, channel, *channels):
 
-        async with self.catch_error():
-
-            await self._init_conn()
-
-            return await super().unsubscribe(channel, *channels)
+        return await self._safe_execute(super().unsubscribe, channel, *channels)
 
     async def psubscribe(self, pattern, *patterns):
 
-        async with self.catch_error():
-
-            await self._init_conn()
-
-            return await super().psubscribe(pattern, *patterns)
+        return await self._safe_execute(super().psubscribe, pattern, *patterns)
 
     async def punsubscribe(self, pattern, *patterns):
 
-        async with self.catch_error():
-
-            await self._init_conn()
-
-            return await super().punsubscribe(pattern, *patterns)
+        return await self._safe_execute(super().punsubscribe, pattern, *patterns)
 
     @property
     def channels(self):
@@ -308,12 +317,11 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     async def set(self, key, value, expire=0):
 
-        if expire <= 0:
-            expire = self._expire
+        _expire = expire if expire > 0 else self._expire
 
         value = self._val_encode(value)
 
-        result = await super().set(key, value, expire=expire)
+        result = await super().set(key, value, expire=_expire)
 
         return result
 
@@ -492,3 +500,91 @@ class ShareCache(AsyncContextManager):
                 await self._locker.release()
 
         self._cache = self._locker = None
+
+
+class PeriodCounter:
+
+    def __init__(self, ntp_client: NTPClient, cache_pool: RedisPool, time_slice: int, key_prefix: str = r''):
+
+        self._ntp_client = ntp_client
+        self._cache_pool = cache_pool
+
+        self._time_slice = time_slice
+        self._key_prefix = key_prefix
+
+    def _get_key(self, key: str = None) -> str:
+
+        time_period = Utils.math.floor(self._ntp_client.timestamp / self._time_slice)
+
+        if key is None:
+            return f'{self._key_prefix}_{time_period}'
+        else:
+            return f'{self._key_prefix}_{key}_{time_period}'
+
+    async def _incr(self, key: str, val: str) -> int:
+
+        res = None
+
+        with self._cache_pool.get_client() as cache:
+            pipeline = cache.pipeline()
+            pipeline.incrby(key, val)
+            pipeline.expire(key, max(self._time_slice, 60))
+            res, _ = await pipeline.execute()
+
+        return res
+
+    async def _decr(self, key: str, val: str) -> int:
+
+        res = None
+
+        with self._cache_pool.get_client() as cache:
+            pipeline = cache.pipeline()
+            pipeline.decrby(key, val)
+            pipeline.expire(key, max(self._time_slice, 60))
+            res, _ = await pipeline.execute()
+
+        return res
+
+    async def incr(self, val: str, key: str = None):
+
+        _key = self._get_key(key)
+
+        res = await self._incr(_key, val)
+
+        return res
+
+    async def incr_with_trx(self, val: str, key: str = None) -> (int, Transaction):
+
+        _key = self._get_key(key)
+
+        res = await self._incr(_key, val)
+
+        if res is not None:
+            trx = Transaction()
+            trx.add_rollback_callback(self._decr, _key, val)
+        else:
+            trx = None
+
+        return res, trx
+
+    async def decr(self, val: str, key: str = None) -> int:
+
+        _key = self._get_key(key)
+
+        res = await self._decr(_key, val)
+
+        return res
+
+    async def decr_with_trx(self, val: str, key: str = None) -> (int, Transaction):
+
+        _key = self._get_key(key)
+
+        res = await self._decr(_key, val)
+
+        if res is not None:
+            trx = Transaction()
+            trx.add_rollback_callback(self._incr, _key, val)
+        else:
+            trx = None
+
+        return res, trx

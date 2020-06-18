@@ -1,20 +1,31 @@
 # -*- coding: utf-8 -*-
 
-import copy
 import types
 import weakref
 import inspect
 import asyncio
 import functools
 
-import uvloop
-
 from contextvars import Context, ContextVar
 
 from hagworm import package_slogan
 from hagworm import __version__ as package_version
 from hagworm.extend import base
+from hagworm.extend.cache import StackCache
 from hagworm.extend.interface import RunnableInterface
+
+
+def install_uvloop():
+    """尝试安装uvloop
+    """
+
+    try:
+        import uvloop
+    except ModuleNotFoundError:
+        Utils.log.warning(f'uvloop is not supported')
+    else:
+        uvloop.install()
+        Utils.log.success(f'uvloop {uvloop.__version__} installed')
 
 
 class Launcher(RunnableInterface):
@@ -24,7 +35,14 @@ class Launcher(RunnableInterface):
 
     """
 
-    def __init__(self, log_file_path=None, log_level=r'INFO', log_file_num_backups=7, debug=False):
+    def __init__(self,
+                 log_file_path=None, log_level=r'INFO', log_file_num_backups=7,
+                 process_number=1, process_guardian=None,
+                 debug=False
+                 ):
+
+        self._process_id = 0
+        self._process_number = process_number
 
         if log_file_path:
 
@@ -46,12 +64,6 @@ class Launcher(RunnableInterface):
 
             Utils.log.level(log_level)
 
-        # 启用uvloop事件循环
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
-        self._event_loop = asyncio.get_event_loop()
-        self._event_loop.set_debug(debug)
-
         environment = Utils.environment()
 
         Utils.log.info(
@@ -61,9 +73,26 @@ class Launcher(RunnableInterface):
             f'system {" ".join(environment["system"])}'
         )
 
-    def run(self, future):
+        install_uvloop()
 
-        self._event_loop.run_until_complete(future)
+        if self._process_number > 1:
+            self._process_id = base.fork_processes(self._process_number, process_guardian)
+
+        self._event_loop = asyncio.get_event_loop()
+        self._event_loop.set_debug(debug)
+
+    @property
+    def process_id(self):
+
+        return self._process_id
+
+    def run(self, func, *args, **kwargs):
+
+        Utils.log.success(f'Start process no.{self._process_id}')
+
+        self._event_loop.run_until_complete(func(*args, **kwargs))
+
+        Utils.log.success(f'Stop process no.{self._process_id}')
 
 
 class Utils(base.Utils):
@@ -574,6 +603,8 @@ class AsyncContextManager:
 
     async def __aenter__(self):
 
+        await self._context_initialize()
+
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
@@ -589,6 +620,10 @@ class AsyncContextManager:
             Utils.log.exception(exc_value)
 
             return True
+
+    async def _context_initialize(self):
+
+        pass
 
     async def _context_release(self):
 
@@ -645,84 +680,6 @@ class AsyncFuncWrapper(base.FuncWrapper):
                 Utils.log.error(err)
 
 
-class Transaction(AsyncContextManager):
-    """事务对象
-
-    使用异步上下文实现的一个事务对象，可以设置commit和rollback回调
-    未显示commit的情况下，会自动rollback
-
-    """
-
-    def __init__(self):
-
-        self._commit_callbacks = []
-        self._rollback_callbacks = []
-
-    def _clear_callbacks(self):
-
-        self._commit_callbacks.clear()
-        self._rollback_callbacks.clear()
-
-        self._commit_callbacks = self._rollback_callbacks = None
-
-    async def _context_release(self):
-
-        await self.rollback()
-
-    def add_commit_callback(self, _callable):
-
-        if self._commit_callbacks is None:
-            return False
-
-        self._commit_callbacks.append(_callable)
-
-        return True
-
-    def add_rollback_callback(self, _callable):
-
-        if self._rollback_callbacks is None:
-            return False
-
-        self._rollback_callbacks.append(_callable)
-
-        return True
-
-    async def commit(self):
-
-        if self._commit_callbacks is None:
-            return
-
-        callbacks = self._commit_callbacks.copy()
-
-        self._clear_callbacks()
-
-        for _callable in callbacks:
-            with base.catch_error():
-                await Utils.awaitable_wrapper(
-                    _callable()
-                )
-
-    async def rollback(self):
-
-        if self._rollback_callbacks is None:
-            return
-
-        callbacks = self._rollback_callbacks.copy()
-
-        self._clear_callbacks()
-
-        for _callable in callbacks:
-            with base.catch_error():
-                await Utils.awaitable_wrapper(
-                    _callable()
-                )
-
-    def bind(self, trx):
-
-        self.add_commit_callback(trx.commit)
-        self.add_rollback_callback(trx.rollback)
-
-
 class FuncCache:
     """函数缓存
 
@@ -732,7 +689,7 @@ class FuncCache:
 
     def __init__(self, maxsize=0xff, ttl=10):
 
-        self._cache = base.StackCache(maxsize, ttl)
+        self._cache = StackCache(maxsize, ttl)
 
     def __call__(self, func):
 
