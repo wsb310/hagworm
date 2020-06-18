@@ -73,6 +73,12 @@ class PeriodCounter:
         else:
             return f'{self._key_prefix}_{key}_{time_period}'
 
+    def get(self, key=None):
+
+        _key = self._get_key(key)
+
+        return self._cache.get(_key, 0)
+
     def incr(self, val, key=None):
 
         _key = self._get_key(key)

@@ -11,15 +11,13 @@ from hagworm.extend.asyncio.zmq import Subscriber, Publisher
 
 
 SIGNAL_PROTOCOL = r'tcp'
-SIGNAL_PORT = 3721
-HIGH_WATER_MARK = 51200
+SIGNAL_PORT = 0x310
+HIGH_WATER_MARK = 0xffffff
 
 
 class Guardian(RunnableInterface):
 
     async def _do_polling(self, pids, hwm):
-
-        finished = set()
 
         with Reporter() as reporter:
 
@@ -27,11 +25,11 @@ class Guardian(RunnableInterface):
 
             async for _ in AsyncCirculatorForSecond():
 
-                for pid in pids:
+                for pid in pids.copy():
                     if os.waitpid(pid, os.WNOHANG)[0] == pid:
-                        finished.add(pid)
+                        pids.remove(pid)
 
-                if len(pids - finished) == 0:
+                if len(pids) == 0:
                     break
 
             Utils.log.info(f'\n{reporter.get_report_table()}')
