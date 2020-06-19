@@ -19,9 +19,9 @@ class Task(TaskInterface):
             resp_time = self.randint(12345, 98765) / 10000
 
             if self.randhit([True, False], [32, 8]):
-                await self.success(f'Test{index}', resp_time)
+                self.success(f'Test{index}', resp_time)
             else:
-                await self.failure(f'Test{index}', resp_time)
+                self.failure(f'Test{index}', resp_time)
 
 
 if __name__ == r'__main__':

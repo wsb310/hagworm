@@ -7,7 +7,7 @@ from terminal_table import Table
 from hagworm.extend.interface import RunnableInterface
 from hagworm.extend.asyncio.base import Launcher as _Launcher
 from hagworm.extend.asyncio.base import Utils, MultiTasks, AsyncCirculatorForSecond
-from hagworm.extend.asyncio.zmq import Subscriber, Publisher
+from hagworm.extend.asyncio.zmq import Subscriber, PublisherWithBuffer
 
 
 SIGNAL_PROTOCOL = r'tcp'
@@ -97,12 +97,9 @@ class Reporter(Subscriber):
 
     async def _message_handler(self, data):
 
-        name = data.get(r'name', None)
-        result = data.get(r'result', None)
-        resp_time = data.get(r'resp_time', 0)
-
-        if name and result in (r'success', r'failure'):
-            getattr(self._get_report(name), result).append(resp_time)
+        for name, result, resp_time in data:
+            if name and result in (r'success', r'failure'):
+                getattr(self._get_report(name), result).append(resp_time)
 
     def _get_report(self, name: str) -> _Report:
 
@@ -145,28 +142,20 @@ class Reporter(Subscriber):
 
 class TaskInterface(Utils, RunnableInterface):
 
-    def __init__(self, publisher: Publisher):
+    def __init__(self, publisher: PublisherWithBuffer):
 
         self._publisher = publisher
 
-    async def success(self, name: str, resp_time: int):
+    def success(self, name: str, resp_time: int):
 
-        await self._publisher.send(
-            {
-                r'name': name,
-                r'result': r'success',
-                r'resp_time': resp_time,
-            }
+        self._publisher.append(
+            (name, r'success', resp_time,)
         )
 
-    async def failure(self, name: str, resp_time: int):
+    def failure(self, name: str, resp_time: int):
 
-        await self._publisher.send(
-            {
-                r'name': name,
-                r'result': r'failure',
-                r'resp_time': resp_time,
-            }
+        self._publisher.append(
+            (name, r'failure', resp_time,)
         )
 
     async def run(self):
@@ -180,7 +169,7 @@ class Runner(Utils, RunnableInterface):
         global SIGNAL_PROTOCOL, SIGNAL_PORT
 
         self._task_cls = task_cls
-        self._publisher = Publisher(f'{SIGNAL_PROTOCOL}://localhost:{SIGNAL_PORT}', False)
+        self._publisher = PublisherWithBuffer(f'{SIGNAL_PROTOCOL}://localhost:{SIGNAL_PORT}', False)
 
     async def run(self, times, task_num):
 
@@ -195,4 +184,4 @@ class Runner(Utils, RunnableInterface):
 
             await tasks
 
-        self._publisher.close()
+        await self._publisher.safe_close()

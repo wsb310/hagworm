@@ -521,11 +521,11 @@ class PeriodCounter:
         else:
             return f'{self._key_prefix}_{key}_{time_period}'
 
-    async def _incr(self, key: str, val: str) -> int:
+    async def _incr(self, key: int, val: str) -> int:
 
         res = None
 
-        with self._cache_pool.get_client() as cache:
+        async with self._cache_pool.get_client() as cache:
             pipeline = cache.pipeline()
             pipeline.incrby(key, val)
             pipeline.expire(key, max(self._time_slice, 60))
@@ -533,11 +533,11 @@ class PeriodCounter:
 
         return res
 
-    async def _decr(self, key: str, val: str) -> int:
+    async def _decr(self, key: int, val: str) -> int:
 
         res = None
 
-        with self._cache_pool.get_client() as cache:
+        async with self._cache_pool.get_client() as cache:
             pipeline = cache.pipeline()
             pipeline.decrby(key, val)
             pipeline.expire(key, max(self._time_slice, 60))
@@ -545,7 +545,7 @@ class PeriodCounter:
 
         return res
 
-    async def incr(self, val: str, key: str = None):
+    async def incr(self, val: int, key: str = None):
 
         _key = self._get_key(key)
 
@@ -553,7 +553,7 @@ class PeriodCounter:
 
         return res
 
-    async def incr_with_trx(self, val: str, key: str = None) -> (int, Transaction):
+    async def incr_with_trx(self, val: int, key: str = None) -> (int, Transaction):
 
         _key = self._get_key(key)
 
@@ -567,7 +567,7 @@ class PeriodCounter:
 
         return res, trx
 
-    async def decr(self, val: str, key: str = None) -> int:
+    async def decr(self, val: int, key: str = None) -> int:
 
         _key = self._get_key(key)
 
@@ -575,7 +575,7 @@ class PeriodCounter:
 
         return res
 
-    async def decr_with_trx(self, val: str, key: str = None) -> (int, Transaction):
+    async def decr_with_trx(self, val: int, key: str = None) -> (int, Transaction):
 
         _key = self._get_key(key)
 
