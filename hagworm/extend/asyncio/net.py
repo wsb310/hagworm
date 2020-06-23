@@ -8,6 +8,7 @@ import aiohttp
 from enum import Enum
 
 from hagworm.extend.base import ContextManager
+from hagworm.extend.asyncio.base import AsyncCirculatorForSecond
 from hagworm.extend.asyncio.buffer import FileBuffer
 
 from .base import Utils
@@ -80,10 +81,6 @@ class _HTTPClient:
         self._session_config[r'timeout'] = timeout if timeout is not None else DEFAULT_TIMEOUT
         self._session_config.setdefault(r'raise_for_status', True)
 
-    async def _sleep_for_retry(self, times):
-
-        return await Utils.sleep(times)
-
     async def _handle_response(self, response):
 
         return await response.read()
@@ -132,10 +129,7 @@ class _HTTPClient:
 
         settings.setdefault(r'ssl', self._ssl_context)
 
-        for times in range(0, self._retry_count):
-
-            if times > 0:
-                Utils.log.debug(f'{method} {url} => retry:{times}')
+        async for times in AsyncCirculatorForSecond(max_times=self._retry_count):
 
             try:
 
@@ -149,39 +143,39 @@ class _HTTPClient:
                             await self._handle_response(_response)
                         )
 
-                Utils.log.info(f'{method} {url} => status:{response.status}')
-
             except aiohttp.ClientResponseError as err:
 
                 # 重新尝试的话，会记录异常，否则会继续抛出异常
-
-                Utils.log.error(err)
 
                 if err.status < 500:
                     raise err
                 elif times >= self._retry_count:
                     raise err
                 else:
-                    await self._sleep_for_retry(times)
+                    Utils.log.error(err)
+                    continue
 
             except aiohttp.ClientError as err:
-
-                Utils.log.error(err)
 
                 if times >= self._retry_count:
                     raise err
                 else:
-                    await self._sleep_for_retry(times)
+                    Utils.log.error(err)
+                    continue
 
             except Exception as err:
-
-                Utils.log.error(err)
 
                 raise err
 
             else:
 
+                Utils.log.info(f'{method} {url} => status:{response.status}')
                 break
+
+            finally:
+
+                if times > 1:
+                    Utils.log.warning(f'{method} {url} => retry:{times}')
 
         return response
 
@@ -414,10 +408,6 @@ class Downloader(_HTTPClient):
         self._state = STATE.PENDING
 
         self._response = None
-
-    async def _sleep_for_retry(self, times):
-
-        return await Utils.sleep(2 ** times)
 
     @property
     def file(self):

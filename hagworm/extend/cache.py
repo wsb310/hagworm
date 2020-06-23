@@ -56,13 +56,15 @@ class StackCache:
 
 class PeriodCounter:
 
+    MIN_EXPIRE = 60
+
     def __init__(self, time_slice, key_prefix=r'', maxsize=0xffff):
 
         self._time_slice = time_slice
         self._key_prefix = key_prefix
 
         # 缓存对象初始化，key最小过期时间60秒
-        self._cache = StackCache(maxsize, max(time_slice, 60))
+        self._cache = StackCache(maxsize, max(time_slice, self.MIN_EXPIRE))
 
     def _get_key(self, key=None):
 

@@ -240,7 +240,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
         return MLock(self, key, expire)
 
-    # Transaction commands
+    # TRANSACTION COMMANDS
 
     async def unwatch(self):
 
@@ -258,7 +258,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
         return Pipeline(self._pool, aioredis.Redis, loop=self._pool._loop)
 
-    # Pub/Sub commands
+    # PUB/SUB COMMANDS
 
     async def subscribe(self, channel, *channels):
 
@@ -504,6 +504,8 @@ class ShareCache(AsyncContextManager):
 
 class PeriodCounter:
 
+    MIN_EXPIRE = 60
+
     def __init__(self, ntp_client: NTPClient, cache_pool: RedisPool, time_slice: int, key_prefix: str = r''):
 
         self._ntp_client = ntp_client
@@ -528,7 +530,7 @@ class PeriodCounter:
         async with self._cache_pool.get_client() as cache:
             pipeline = cache.pipeline()
             pipeline.incrby(key, val)
-            pipeline.expire(key, max(self._time_slice, 60))
+            pipeline.expire(key, max(self._time_slice, self.MIN_EXPIRE))
             res, _ = await pipeline.execute()
 
         return res
@@ -540,7 +542,7 @@ class PeriodCounter:
         async with self._cache_pool.get_client() as cache:
             pipeline = cache.pipeline()
             pipeline.decrby(key, val)
-            pipeline.expire(key, max(self._time_slice, 60))
+            pipeline.expire(key, max(self._time_slice, self.MIN_EXPIRE))
             res, _ = await pipeline.execute()
 
         return res
