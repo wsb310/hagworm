@@ -39,6 +39,10 @@ def _json_decoder(val, *args, **kwargs):
         Utils.log.error(f'http client json decode error: {err} => {val}')
 
 
+def create_default_context():
+    return ssl.create_default_context(cafile=_CA_FILE)
+
+
 class Result(dict):
 
     def __init__(self, status, headers, body):
@@ -73,7 +77,7 @@ class _HTTPClient:
 
         global DEFAULT_TIMEOUT
 
-        self._ssl_context = ssl.create_default_context(cafile=_CA_FILE)
+        self._ssl_context = create_default_context()
 
         self._retry_count = retry_count
 

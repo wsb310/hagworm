@@ -592,7 +592,7 @@ class DownloadAgent(RequestBaseHandler, DownloadBuffer):
 
         except Exception as err:
 
-            self.log.exception(err)
+            self.log.error(err)
 
         finally:
 

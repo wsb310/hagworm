@@ -623,21 +623,17 @@ class DBClient(_ClientBase, AsyncContextManager):
 
                 except (Warning, DataError, IntegrityError, ProgrammingError) as err:
 
-                    Utils.log.exception(err)
-
                     await self._close_conn(True)
 
                     raise err
 
                 except Exception as err:
 
-                    # 记录异常，如果不重新尝试会继续抛出异常
-
-                    Utils.log.exception(err)
-
                     await self._close_conn(True)
 
-                    if times >= MYSQL_ERROR_RETRY_COUNT:
+                    if times < MYSQL_ERROR_RETRY_COUNT:
+                        Utils.log.exception(err)
+                    else:
                         raise err
 
                 else:
@@ -692,8 +688,6 @@ class DBTransaction(DBClient):
                 result = await conn.execute(clause)
 
             except Exception as err:
-
-                Utils.log.exception(err)
 
                 await self._close_conn(True)
 

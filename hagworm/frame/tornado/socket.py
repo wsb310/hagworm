@@ -31,7 +31,7 @@ class _TCPServer(TCPServer):
 
         except Exception as err:
 
-            Utils.log.exception(err)
+            Utils.log.error(err)
 
         finally:
 
@@ -61,11 +61,11 @@ class Protocol:
                 except StreamClosedError:
                     break
                 except Exception as err:
-                    Utils.log.exception(err)
+                    Utils.log.error(err)
 
         except Exception as err:
 
-            Utils.log.exception(err)
+            Utils.log.error(err)
 
         finally:
 
