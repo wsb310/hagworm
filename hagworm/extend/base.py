@@ -28,6 +28,7 @@ import unicodedata
 import calendar
 import jwt
 import loguru
+import warnings
 import xmltodict
 import xml.dom.minidom
 
@@ -106,6 +107,11 @@ class Utils:
             r'python': sys.version,
             r'system': [platform.system(), platform.release(), platform.version(), platform.machine()],
         }
+
+    @classmethod
+    def deprecation_warning(cls, val):
+
+        warnings.warn(val, DeprecationWarning)
 
     @classmethod
     def utf8(cls, val):
@@ -354,7 +360,7 @@ class Utils:
         result = None
 
         with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as _socket:
-            _socket.connect((r'8.8.8.8', 53))
+            _socket.connect((r'223.5.5.5', 53))
             result = _socket.getsockname()[0]
 
         return result

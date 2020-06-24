@@ -157,7 +157,7 @@ class LogRequestMixin:
             '\n---------- request arguments ----------\n' +
             json.dumps(
                 {
-                    key: [val.decode(r'utf-8') for val in items]
+                    key: [Utils.basestring(val) for val in items]
                     for key, items in self.request.arguments.items()
                 },
                 ensure_ascii=False, indent=4
@@ -592,7 +592,7 @@ class DownloadAgent(RequestBaseHandler, DownloadBuffer):
 
         except Exception as err:
 
-            self.log.exception(err)
+            self.log.error(err)
 
         finally:
 

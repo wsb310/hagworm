@@ -6,7 +6,8 @@ from concurrent.futures import CancelledError
 from zmq.asyncio import Context
 
 from hagworm.extend.base import ContextManager
-from hagworm.extend.asyncio.base import Utils
+from hagworm.extend.asyncio.base import Utils, AsyncCirculator
+from hagworm.extend.asyncio.buffer import QueueBuffer
 
 
 class _SocketBase(ContextManager):
@@ -95,3 +96,22 @@ class Publisher(_SocketBase):
     async def send(self, data):
 
         await self._socket.send_pyobj(data)
+
+
+class PublisherWithBuffer(_SocketBase, QueueBuffer):
+
+    def __init__(self, address, bind_mode=False, *, name=None, buffer_maxsize=0xffff, buffer_timeout=1):
+
+        _SocketBase.__init__(self, name, zmq.PUB, address, bind_mode)
+        QueueBuffer.__init__(self, buffer_maxsize, buffer_timeout)
+
+    async def _run(self, data_list):
+
+        await self._socket.send_pyobj(data_list)
+
+    async def safe_close(self, timeout=0):
+
+        async for _ in AsyncCirculator(timeout):
+            if len(self._data_list) == 0:
+                super().close()
+                break

@@ -189,21 +189,17 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
             except (ReplyError, MaxClientsError, AuthError, ReadOnlyError) as err:
 
-                Utils.log.exception(err)
-
                 await self._close_conn(True)
 
                 raise err
 
             except Exception as err:
 
-                # 记录异常，如果不重新尝试会继续抛出异常
-
-                Utils.log.exception(err)
-
                 await self._close_conn(True)
 
-                if times >= REDIS_ERROR_RETRY_COUNT:
+                if times < REDIS_ERROR_RETRY_COUNT:
+                    Utils.log.exception(err)
+                else:
                     raise err
 
             else:
@@ -240,7 +236,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
         return MLock(self, key, expire)
 
-    # Transaction commands
+    # TRANSACTION COMMANDS
 
     async def unwatch(self):
 
@@ -258,7 +254,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
         return Pipeline(self._pool, aioredis.Redis, loop=self._pool._loop)
 
-    # Pub/Sub commands
+    # PUB/SUB COMMANDS
 
     async def subscribe(self, channel, *channels):
 
@@ -300,34 +296,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
         return self._pool_or_conn.in_pubsub
 
-    # OVERRIDE COMMANDS
-
-    async def get(self, key):
-
-        result = await super().get(key)
-
-        if result is not None:
-            result = self._val_decode(result)
-
-        return result
-
-    def _get(self, key, *, encoding=_NOTSET):
-
-        return super().get(key, encoding=encoding)
-
-    async def set(self, key, value, expire=0):
-
-        _expire = expire if expire > 0 else self._expire
-
-        value = self._val_encode(value)
-
-        result = await super().set(key, value, expire=_expire)
-
-        return result
-
-    def _set(self, key, value, *, expire=0, pexpire=0, exist=None):
-
-        return super().set(key, value, expire=expire, pexpire=pexpire, exist=exist)
+    # GENERIC COMMANDS
 
     async def delete(self, *keys):
 
@@ -347,6 +316,490 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
     def _delete(self, key, *keys):
 
         return super().delete(key, *keys)
+
+    async def keys(self, pattern):
+
+        result = await super().keys(pattern)
+
+        if result is not None:
+            result = [Utils.basestring(key) for key in result]
+
+        return result
+
+    def _keys(self, pattern, *, encoding=_NOTSET):
+
+        return super().keys(pattern, encoding=encoding)
+
+    async def randomkey(self):
+
+        result = await super().randomkey()
+
+        if result is not None:
+            result = Utils.basestring(result)
+
+        return result
+
+    def _randomkey(self, *, encoding=_NOTSET):
+
+        return super().randomkey(encoding=encoding)
+
+    async def scan(self, cursor=0, match=None, count=None):
+
+        result = await super().scan(cursor, match, count)
+
+        if result is not None:
+            result = (result[0], [Utils.basestring(val) for val in result[1]])
+
+        return result
+
+    def _scan(self, cursor=0, match=None, count=None):
+
+        return super().scan(cursor, match, count)
+
+    # STRING COMMANDS
+
+    async def get(self, key):
+
+        result = await super().get(key)
+
+        if result is not None:
+            result = self._val_decode(result)
+
+        return result
+
+    def _get(self, key, *, encoding=_NOTSET):
+
+        return super().get(key, encoding=encoding)
+
+    async def getset(self, key, value):
+
+        _value = self._val_encode(value)
+
+        result = await super().getset(key, _value)
+
+        if result is not None:
+            result = self._val_decode(result)
+
+        return result
+
+    def _getset(self, key, value, *, encoding=_NOTSET):
+
+        return super().getset(key, value, encoding=encoding)
+
+    async def mget(self, key, *keys):
+
+        result = await super().mget(key, *keys)
+
+        if result is not None:
+            result = [self._val_decode(val) for val in result]
+
+        return result
+
+    def _mget(self, key, *keys, encoding=_NOTSET):
+
+        return super().mget(key, *keys, encoding=encoding)
+
+    async def set(self, key, value, expire=0):
+
+        _value = self._val_encode(value)
+        _expire = expire if expire > 0 else self._expire
+
+        result = await super().set(key, _value, expire=_expire)
+
+        return result
+
+    def _set(self, key, value, *, expire=0, pexpire=0, exist=None):
+
+        return super().set(key, value, expire=expire, pexpire=pexpire, exist=exist)
+
+    async def mset(self, key, value, *pairs):
+
+        _value = self._val_encode(value)
+        _pairs = [item if index % 2 == 0 else self._val_encode(item) for index, item in enumerate(pairs)]
+
+        result = await super().mset(key, _value, *_pairs)
+
+        return result
+
+    def _mset(self, key, value, *pairs):
+
+        return super().mset(key, value, *pairs)
+
+    async def msetnx(self, key, value, *pairs):
+
+        _value = self._val_encode(value)
+        _pairs = [item if index % 2 == 0 else self._val_encode(item) for index, item in enumerate(pairs)]
+
+        result = await super().msetnx(key, _value, *_pairs)
+
+        return result
+
+    def _msetnx(self, key, value, *pairs):
+
+        return super().msetnx(key, value, *pairs)
+
+    async def psetex(self, key, milliseconds, value):
+
+        _value = self._val_encode(value)
+
+        result = await super().psetex(key, milliseconds, _value)
+
+        return result
+
+    def _psetex(self, key, milliseconds, value):
+
+        return super().psetex(key, milliseconds, value)
+
+    async def setex(self, key, seconds, value):
+
+        _value = self._val_encode(value)
+
+        result = await super().setex(key, seconds, _value)
+
+        return result
+
+    def _setex(self, key, seconds, value):
+
+        return super().setex(key, seconds, value)
+
+    async def setnx(self, key, value):
+
+        _value = self._val_encode(value)
+
+        result = await super().setnx(key, _value)
+
+        return result
+
+    def _setnx(self, key, value):
+
+        return super().setnx(key, value)
+
+    # HASH COMMANDS
+
+    async def hget(self, key, field):
+
+        result = await super().hget(key, field)
+
+        if result is not None:
+            result = self._val_decode(result)
+
+        return result
+
+    def _hget(self, key, field, *, encoding=_NOTSET):
+
+        return super().hget(key, field, encoding=encoding)
+
+    async def hgetall(self, key):
+
+        result = await super().hgetall(key)
+
+        if result is not None:
+            result = {Utils.basestring(key): self._val_decode(val) for key, val in result.items()}
+
+        return result
+
+    def _hgetall(self, key, *, encoding=_NOTSET):
+
+        return super().hgetall(key, encoding=encoding)
+
+    async def hkeys(self, key):
+
+        result = await super().hkeys(key)
+
+        if result is not None:
+            result = [Utils.basestring(key) for key in result]
+
+        return result
+
+    def _hkeys(self, key, *, encoding=_NOTSET):
+
+        return super().hkeys(key, encoding=encoding)
+
+    async def hmget(self, key, field, *fields):
+
+        result = await super().hmget(key, field, *fields)
+
+        if result is not None:
+            result = [self._val_decode(val) for val in result]
+
+        return result
+
+    def _hmget(self, key, field, *fields, encoding=_NOTSET):
+
+        return super().hmget(key, field, *fields, encoding=encoding)
+
+    async def hmset(self, key, field, value, *pairs):
+
+        _value = self._val_encode(value)
+        _pairs = [item if index % 2 == 0 else self._val_encode(item) for index, item in enumerate(pairs)]
+
+        result = await super().hmset(key, field, _value, *_pairs)
+
+        return result
+
+    def _hmset(self, key, field, value, *pairs):
+
+        return super().hmset(key, field, value, *pairs)
+
+    async def hmset_dict(self, key, *args, **kwargs):
+
+        for _arg in args:
+            if isinstance(_arg, dict):
+                kwargs.update({key: self._val_encode(val) for key, val in _arg.items()})
+
+        return await super().hmset_dict(key, kwargs)
+
+    def _hmset_dict(self, key, *args, **kwargs):
+
+        return super().hmset_dict(key, *args, **kwargs)
+
+    async def hset(self, key, field, value):
+
+        _value = self._val_encode(value)
+
+        result = await super().hset(key, field, _value)
+
+        return result
+
+    def _hset(self, key, field, value):
+
+        return super().hset(key, field, value)
+
+    async def hsetnx(self, key, field, value):
+
+        _value = self._val_encode(value)
+
+        result = await super().hsetnx(key, field, _value)
+
+        return result
+
+    def _hsetnx(self, key, field, value):
+
+        return super().hsetnx(key, field, value)
+
+    async def hvals(self, key):
+
+        result = await super().hvals(key)
+
+        if result is not None:
+            result = [self._val_decode(val) for val in result]
+
+        return result
+
+    def _hvals(self, key, *, encoding=_NOTSET):
+
+        return super().hvals(key, encoding=encoding)
+
+    async def hscan(self, key, cursor=0, match=None, count=None):
+
+        result = await super().hscan(key, cursor, match, count)
+
+        if result is not None:
+            result = (result[0], [(Utils.basestring(key), self._val_decode(val), ) for key, val in result[1]])
+
+        return result
+
+    def _hscan(self, key, cursor=0, match=None, count=None):
+
+        return super().hscan(key, cursor, match, count)
+
+    # LIST COMMANDS
+
+    async def blpop(self, key, *, timeout=0):
+
+        result = await super().blpop(key, timeout=timeout)
+
+        if result is not None:
+            result = self._val_decode(result[1])
+
+        return result
+
+    def _blpop(self, key, *keys, timeout=0, encoding=_NOTSET):
+
+        return super().blpop(key, *keys, timeout=timeout, encoding=encoding)
+
+    async def brpop(self, key, *, timeout=0):
+
+        result = await super().brpop(key, timeout=timeout)
+
+        if result is not None:
+            result = self._val_decode(result[1])
+
+        return result
+
+    def _brpop(self, key, *keys, timeout=0, encoding=_NOTSET):
+
+        return super().brpop(key, *keys, timeout=timeout, encoding=encoding)
+
+    async def brpoplpush(self, sourcekey, destkey, timeout=0):
+
+        result = await super().brpoplpush(sourcekey, destkey, timeout)
+
+        if result is not None:
+            result = self._val_decode(result)
+
+        return result
+
+    def _brpoplpush(self, sourcekey, destkey, timeout=0, encoding=_NOTSET):
+
+        return super().brpoplpush(sourcekey, destkey, timeout, encoding)
+
+    async def lindex(self, key, index):
+
+        result = await super().lindex(key, index, encoding=encoding)
+
+        if result is not None:
+            result = self._val_decode(result)
+
+        return result
+
+    def _lindex(self, key, index, *, encoding=_NOTSET):
+
+        return super().lindex(key, index, encoding=encoding)
+
+    async def linsert(self, key, pivot, value, before=False):
+
+        _pivot = self._val_encode(pivot)
+        _value = self._val_encode(value)
+
+        result = await super().linsert(key, _pivot, _value, before=before)
+
+        return result
+
+    def _linsert(self, key, pivot, value, before=False):
+
+        return super().linsert(key, pivot, value, before=before)
+
+    async def lpop(self, key):
+
+        result = await super().lpop(key)
+
+        if result is not None:
+            result = self._val_decode(result)
+
+        return result
+
+    def _lpop(self, key, *, encoding=_NOTSET):
+
+        return super().lpop(key, encoding=encoding)
+
+    async def lpush(self, key, value, *values):
+
+        _value = self._val_encode(value)
+        _values = [self._val_encode(val) for val in values]
+
+        result = await super().lpush(key, _value, *_values)
+
+        return result
+
+    def _lpush(self, key, value, *values):
+
+        return super().lpush(key, value, *values)
+
+    async def lpushx(self, key, value):
+
+        _value = self._val_encode(value)
+
+        result = await super().lpushx(key, _value)
+
+        return result
+
+    def _lpushx(self, key, value):
+
+        return super().lpushx(key, value)
+
+    async def lrange(self, key, start, stop):
+
+        result = await super().lrange(key, start, stop)
+
+        if result is not None:
+            result = [self._val_decode(val) for val in result]
+
+        return result
+
+    def _lrange(self, key, start, stop, *, encoding=_NOTSET):
+
+        return super().lrange(key, start, stop, encoding=encoding)
+
+    async def lrem(self, key, count, value):
+
+        _value = self._val_encode(value)
+
+        result = await super().lrem(key, count, _value)
+
+        return result
+
+    def _lrem(self, key, count, value):
+
+        return super().lrem(key, count, value)
+
+    async def lset(self, key, index, value):
+
+        _value = self._val_encode(value)
+
+        result = await super().lset(key, index, _value)
+
+        return result
+
+    def _lset(self, key, index, value):
+
+        return super().lset(key, index, value)
+
+    async def rpop(self, key):
+
+        result = await super().rpop(key)
+
+        if result is not None:
+            result = self._val_decode(result)
+
+        return result
+
+    def _rpop(self, key, *, encoding=_NOTSET):
+
+        return super().rpop(self, key, encoding=encoding)
+
+    async def rpoplpush(self, sourcekey, destkey):
+
+        result = await super().rpoplpush(sourcekey, destkey)
+
+        if result is not None:
+            result = self._val_decode(result)
+
+        return result
+
+    def _rpoplpush(self, sourcekey, destkey, *, encoding=_NOTSET):
+
+        return super().rpoplpush(sourcekey, destkey, encoding=encoding)
+
+    async def rpush(self, key, value, *values):
+
+        _value = self._val_encode(value)
+        _values = [self._val_encode(val) for val in values]
+
+        result = await super().rpush(key, _value, *_values)
+
+        return result
+
+    def _rpush(self, key, value, *values):
+
+        _value = self._val_encode(value)
+        _values = [self._val_encode(val) for val in values]
+
+        return super().rpush(key, _value, *_values)
+
+    async def rpushx(self, key, value):
+
+        _value = self._val_encode(value)
+
+        result = await super().rpushx(key, _value)
+
+        return result
+
+    def _rpushx(self, key, value):
+
+        _value = self._val_encode(value)
+
+        return super().rpushx(key, _value)
 
 
 class MLock(AsyncContextManager):
@@ -504,6 +957,8 @@ class ShareCache(AsyncContextManager):
 
 class PeriodCounter:
 
+    MIN_EXPIRE = 60
+
     def __init__(self, ntp_client: NTPClient, cache_pool: RedisPool, time_slice: int, key_prefix: str = r''):
 
         self._ntp_client = ntp_client
@@ -521,31 +976,31 @@ class PeriodCounter:
         else:
             return f'{self._key_prefix}_{key}_{time_period}'
 
-    async def _incr(self, key: str, val: str) -> int:
+    async def _incr(self, key: int, val: str) -> int:
 
         res = None
 
-        with self._cache_pool.get_client() as cache:
+        async with self._cache_pool.get_client() as cache:
             pipeline = cache.pipeline()
             pipeline.incrby(key, val)
-            pipeline.expire(key, max(self._time_slice, 60))
+            pipeline.expire(key, max(self._time_slice, self.MIN_EXPIRE))
             res, _ = await pipeline.execute()
 
         return res
 
-    async def _decr(self, key: str, val: str) -> int:
+    async def _decr(self, key: int, val: str) -> int:
 
         res = None
 
-        with self._cache_pool.get_client() as cache:
+        async with self._cache_pool.get_client() as cache:
             pipeline = cache.pipeline()
             pipeline.decrby(key, val)
-            pipeline.expire(key, max(self._time_slice, 60))
+            pipeline.expire(key, max(self._time_slice, self.MIN_EXPIRE))
             res, _ = await pipeline.execute()
 
         return res
 
-    async def incr(self, val: str, key: str = None):
+    async def incr(self, val: int, key: str = None):
 
         _key = self._get_key(key)
 
@@ -553,7 +1008,7 @@ class PeriodCounter:
 
         return res
 
-    async def incr_with_trx(self, val: str, key: str = None) -> (int, Transaction):
+    async def incr_with_trx(self, val: int, key: str = None) -> (int, Transaction):
 
         _key = self._get_key(key)
 
@@ -567,7 +1022,7 @@ class PeriodCounter:
 
         return res, trx
 
-    async def decr(self, val: str, key: str = None) -> int:
+    async def decr(self, val: int, key: str = None) -> int:
 
         _key = self._get_key(key)
 
@@ -575,7 +1030,7 @@ class PeriodCounter:
 
         return res
 
-    async def decr_with_trx(self, val: str, key: str = None) -> (int, Transaction):
+    async def decr_with_trx(self, val: int, key: str = None) -> (int, Transaction):
 
         _key = self._get_key(key)
 
