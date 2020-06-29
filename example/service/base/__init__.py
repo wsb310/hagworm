@@ -5,8 +5,13 @@ from hagworm.extend.metaclass import Singleton
 from hagworm.extend.asyncio.base import Utils, FuncCache, ShareFuture, MultiTasks, async_adapter
 from hagworm.extend.asyncio.cache import RedisDelegate
 from hagworm.extend.asyncio.database import MongoDelegate, MySQLDelegate
+from hagworm.extend.asyncio.future import ProcessSyncDict
 
 from setting import ConfigStatic, ConfigDynamic
+
+
+class GlobalDict(Singleton, ProcessSyncDict):
+    pass
 
 
 class DataSource(Singleton, RedisDelegate, MongoDelegate, MySQLDelegate):
@@ -23,6 +28,9 @@ class DataSource(Singleton, RedisDelegate, MongoDelegate, MySQLDelegate):
         )
 
         MySQLDelegate.__init__(self)
+
+        self._global_dict = GlobalDict()
+        self._refresh_online()
 
     @classmethod
     async def initialize(cls):
@@ -54,8 +62,17 @@ class DataSource(Singleton, RedisDelegate, MongoDelegate, MySQLDelegate):
                 echo=ConfigDynamic.Debug, pool_recycle=21600, readonly=True, conn_life=43200
             )
 
+    @property
+    def online(self):
+
+        return Utils.loop_time() - self._global_dict[r'health_refresh_time'] < 60
+
+    def _refresh_online(self):
+
+        self._global_dict[r'health_refresh_time'] = Utils.loop_time()
+
     @ShareFuture()
-    @FuncCache(ttl=60)
+    @FuncCache(ttl=30)
     async def health(self):
 
         result = False
@@ -72,27 +89,18 @@ class DataSource(Singleton, RedisDelegate, MongoDelegate, MySQLDelegate):
 
             result = all(tasks)
 
+            if result is True:
+                self._refresh_online()
+
         return result
 
 
-class _ModelBase(Singleton, Utils):
+class ServiceBase(Singleton, Utils):
 
     def __init__(self):
 
         self._data_source = DataSource()
 
-        self._event_dispatcher = self._data_source.event_dispatcher(r'channel_test', 5)
-        self._event_dispatcher.add_listener(r'event_test', self._event_listener)
-
     def Break(self, data=None, layers=1):
 
         raise Ignore(data, layers)
-
-    async def dispatch_event(self, *args):
-
-        await self._event_dispatcher.dispatch(r'event_test', *args)
-
-    @async_adapter
-    async def _event_listener(self, *args):
-
-        self.log.info(str(args))

@@ -55,11 +55,13 @@ class _LauncherBase(TaskInterface):
         self._process_id = 0
         self._process_num = self._process_num if self._process_num > 0 else cpu_count()
 
+        # 后台服务任务对象
         if self._background_service is None:
             pass
         elif not isinstance(self._background_service, TaskInterface):
             raise TypeError(r'Background Service Dot Implemented Task Interface')
 
+        # 服务进程任务对象，服务进程不监听端口
         if self._background_process is None:
             pass
         elif isinstance(self._background_process, TaskInterface):

@@ -7,8 +7,6 @@ from aioredis.commands.string import StringCommandsMixin
 from aioredis.commands.transaction import Pipeline, MultiExec
 from aioredis.errors import ReplyError, MaxClientsError, AuthError, ReadOnlyError
 
-from contextlib import asynccontextmanager
-
 from .base import Utils, WeakContextVar, AsyncContextManager, AsyncCirculator
 from .event import DistributedEvent
 from .ntp import NTPClient
@@ -159,19 +157,6 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
     async def release(self):
 
         await self._close_conn()
-
-    @asynccontextmanager
-    async def catch_error(self):
-
-        try:
-
-            yield
-
-        except Exception as err:
-
-            Utils.log.exception(err)
-
-            await self._close_conn(True)
 
     async def _safe_execute(self, func, *args, **kwargs):
 

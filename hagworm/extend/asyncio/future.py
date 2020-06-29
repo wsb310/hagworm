@@ -4,6 +4,8 @@ import asyncio
 import functools
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from multiprocessing import Lock, Manager
+from contextlib import contextmanager
 
 from hagworm.extend.interface import RunnableInterface, TaskInterface
 
@@ -179,3 +181,69 @@ class SubProcess(TaskInterface):
             Utils.log.error(err)
         finally:
             await self.stop()
+
+
+class ProcessSyncDict:
+
+    def __init__(self, lock: Lock = None, manager: Manager = None):
+
+        self._lock = lock if lock is not None else Lock()
+        self._dict = manager.dict() if manager is not None else Manager().dict()
+
+    @contextmanager
+    def _locked(self):
+
+        self._lock.acquire()
+
+        try:
+            yield
+        except Exception as err:
+            Utils.log.error(err)
+        finally:
+            self._lock.release()
+
+    def __contains__(self, *args, **kwargs):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.__contains__(*args, **kwargs)
+
+        return result
+
+    def __delitem__(self, *args, **kwargs):
+
+        with self._locked():
+            self._dict.__delitem__(*args, **kwargs)
+
+    def __getitem__(self, *args, **kwargs):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.__getitem__(*args, **kwargs)
+
+        return result
+
+    def __setitem__(self, *args, **kwargs):
+
+        with self._locked():
+            self._dict.__setitem__(*args, **kwargs)
+
+    def __repr__(self, *args, **kwargs):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.__repr__(*args, **kwargs)
+
+        return result
+
+    def __len__(self, *args, **kwargs):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.__len__(*args, **kwargs)
+
+        return result
