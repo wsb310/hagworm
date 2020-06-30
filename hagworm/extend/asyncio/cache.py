@@ -459,6 +459,115 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
         return super().setnx(key, value)
 
+    # SET COMMANDS
+
+    async def sdiff(self, key, *keys):
+
+        result = await super().sdiff(key, *keys)
+
+        if result is not None:
+            result = [Utils.basestring(val) for val in result]
+
+        return result
+
+    def _sdiff(self, key, *keys):
+
+        return super().sdiff(key, *keys)
+
+    async def sinter(self, key, *keys):
+
+        result = await super().sinter(key, *keys)
+
+        if result is not None:
+            result = [Utils.basestring(val) for val in result]
+
+        return result
+
+    def _sinter(self, key, *keys):
+
+        return super().sinter(key, *keys)
+
+    async def sismember(self, key, member):
+
+        return await super().sismember(key, member)
+
+    def _sismember(self, key, member):
+
+        return super().sismember(key, member)
+
+    async def smembers(self, key):
+
+        result = await super().smembers(key)
+
+        if result is not None:
+            result = [Utils.basestring(val) for val in result]
+
+        return result
+
+    def _smembers(self, key, *, encoding=_NOTSET):
+
+        return super().smembers(key, encoding=encoding)
+
+    async def smove(self, sourcekey, destkey, member):
+
+        return await super().smove(sourcekey, destkey, member)
+
+    def _smove(self, sourcekey, destkey, member):
+
+        return super().smove(sourcekey, destkey, member)
+
+    async def spop(self, key):
+
+        result = await super().spop(key)
+
+        if result is not None:
+            result = Utils.basestring(result)
+
+        return result
+
+    def _spop(self, key, *, encoding=_NOTSET):
+
+        return super().spop(key, encoding=encoding)
+
+    async def srandmember(self, key, count=1):
+
+        result = await super().srandmember(key, count)
+
+        if result is not None:
+            result = [Utils.basestring(val) for val in result]
+
+        return result
+
+    def _srandmember(self, key, count=None):
+
+        return super().srandmember(key, count)
+
+    async def sunion(self, key, *keys):
+
+        result = await super().sunion(key, *keys)
+
+        if result is not None:
+            result = [Utils.basestring(val) for val in result]
+
+        return result
+
+    def _sunion(self, key, *keys):
+
+        return super().sunion(key, *keys)
+
+    async def sscan(self, key, cursor=0, match=None, count=None):
+
+        result = await super().sscan(key, cursor, match, count)
+
+        if result is not None:
+            result = (result[0], [Utils.basestring(val) for val in result[1]])
+
+        return result
+
+    def _sscan(self, key, cursor=0, match=None, count=None):
+
+        return super().sscan(key, cursor, match, count)
+
     # HASH COMMANDS
 
     async def hget(self, key, field):
