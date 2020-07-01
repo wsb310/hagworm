@@ -25,11 +25,11 @@ setuptools.setup(
     install_requires=[
         r'aiohttp==3.5.4',
         r'aiomysql==0.0.20',
-        r'aioredis==1.2.0',
+        r'aioredis==1.3.1',
         r'cacheout==0.11.1',
         r'crontab==0.22.6',
         r'cryptography==2.7.0',
-        r'hiredis==1.0.0',
+        r'hiredis==1.0.1',
         r'Jinja2==2.10.1',
         r'tornado-jinja2==0.2.4',
         r'loguru==0.3.0',
