@@ -16,7 +16,7 @@ class ThreadPool(RunnableInterface):
     """线程池，桥接线程与协程
     """
 
-    def __init__(self, max_workers):
+    def __init__(self, max_workers=None):
 
         self._thread_pool = ThreadPoolExecutor(max_workers)
 
@@ -33,7 +33,7 @@ class ThreadWorker:
     """通过线程转协程实现普通函数非阻塞的装饰器
     """
 
-    def __init__(self, max_workers):
+    def __init__(self, max_workers=None):
 
         self._thread_pool = ThreadPool(max_workers)
 
@@ -50,7 +50,7 @@ class ProcessPool(RunnableInterface):
     """进程池，桥接进程与协程
     """
 
-    def __init__(self, max_workers):
+    def __init__(self, max_workers=None):
 
         self._process_pool = ProcessPoolExecutor(max_workers)
 
@@ -67,7 +67,7 @@ class ProcessWorker:
     """通过进程转协程实现普通函数非阻塞的装饰器
     """
 
-    def __init__(self, max_workers):
+    def __init__(self, max_workers=None):
 
         self._process_pool = ProcessPool(max_workers)
 

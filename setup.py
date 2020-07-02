@@ -44,6 +44,7 @@ setuptools.setup(
         r'pytest-asyncio==0.10.0',
         r'python-stdnum==1.13',
         r'pyzmq==19.0.1',
+        r'mq-http-sdk==1.0.1'
         r'Sphinx==2.1.2',
         r'SQLAlchemy==1.3.5',
         r'tornado==6.0.3',
