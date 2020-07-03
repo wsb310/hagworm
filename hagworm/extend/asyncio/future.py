@@ -118,17 +118,17 @@ class SubProcess(TaskInterface):
     @property
     def stdin(self):
 
-        return self._stdin
+        return self._process.stdin if self._process is not None else None
 
     @property
     def stdout(self):
 
-        return self._stdout
+        return self._process.stdout if self._process is not None else None
 
     @property
     def stderr(self):
 
-        return self._stderr
+        return self._process.stderr if self._process is not None else None
 
     def is_running(self):
 
