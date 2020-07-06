@@ -41,7 +41,7 @@ class RedisPool:
 
         self._pool = yield from aioredis.create_pool(**self._settings).__await__()
 
-        Utils.log.info(f"Redis {self._settings[r'address']} initialized")
+        Utils.log.info(f"Redis {self._settings[r'address']} initialized: {self._pool.size}/{self._pool.maxsize}")
 
         return self
 
