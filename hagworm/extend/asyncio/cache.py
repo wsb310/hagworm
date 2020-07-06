@@ -65,6 +65,11 @@ class RedisDelegate:
 
         self._cache_client_context = WeakContextVar(f'cache_client_{Utils.uuid1()}')
 
+    @property
+    def redis_pool(self):
+
+        return self._redis_pool
+
     async def async_init_redis(self, *args, **kwargs):
 
         self._redis_pool = await RedisPool(*args, **kwargs)
@@ -106,6 +111,10 @@ class RedisDelegate:
     def event_dispatcher(self, channel_name, channel_count):
 
         return DistributedEvent(self._redis_pool, channel_name, channel_count)
+
+    def period_counter(self, time_slice: int, key_prefix: str = r'', ntp_client: NTPClient = None):
+
+        return PeriodCounter(self._redis_pool, time_slice, key_prefix, ntp_client)
 
 
 class CacheClient(aioredis.Redis, AsyncContextManager):
@@ -233,11 +242,11 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     def multi_exec(self):
 
-        return MultiExec(self._pool, aioredis.Redis, loop=self._pool._loop)
+        return MultiExec(self._pool, aioredis.Redis)
 
     def pipeline(self):
 
-        return Pipeline(self._pool, aioredis.Redis, loop=self._pool._loop)
+        return Pipeline(self._pool, aioredis.Redis)
 
     # PUB/SUB COMMANDS
 
@@ -876,10 +885,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     def _rpush(self, key, value, *values):
 
-        _value = self._val_encode(value)
-        _values = [self._val_encode(val) for val in values]
-
-        return super().rpush(key, _value, *_values)
+        return super().rpush(key, value, *values)
 
     async def rpushx(self, key, value):
 
@@ -891,9 +897,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     def _rpushx(self, key, value):
 
-        _value = self._val_encode(value)
-
-        return super().rpushx(key, _value)
+        return super().rpushx(key, value)
 
 
 class MLock(AsyncContextManager):
@@ -1053,17 +1057,20 @@ class PeriodCounter:
 
     MIN_EXPIRE = 60
 
-    def __init__(self, ntp_client: NTPClient, cache_pool: RedisPool, time_slice: int, key_prefix: str = r''):
+    def __init__(self, cache_pool: RedisPool, time_slice: int, key_prefix: str = r'', ntp_client: NTPClient = None):
 
-        self._ntp_client = ntp_client
         self._cache_pool = cache_pool
 
         self._time_slice = time_slice
         self._key_prefix = key_prefix
 
+        self._ntp_client = ntp_client
+
     def _get_key(self, key: str = None) -> str:
 
-        time_period = Utils.math.floor(self._ntp_client.timestamp / self._time_slice)
+        timestamp = Utils.timestamp() if self._ntp_client is None else self._ntp_client.timestamp
+
+        time_period = Utils.math.floor(timestamp / self._time_slice)
 
         if key is None:
             return f'{self._key_prefix}_{time_period}'
