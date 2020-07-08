@@ -496,14 +496,6 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
         return super().sinter(key, *keys)
 
-    async def sismember(self, key, member):
-
-        return await super().sismember(key, member)
-
-    def _sismember(self, key, member):
-
-        return super().sismember(key, member)
-
     async def smembers(self, key):
 
         result = await super().smembers(key)
@@ -516,14 +508,6 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
     def _smembers(self, key, *, encoding=_NOTSET):
 
         return super().smembers(key, encoding=encoding)
-
-    async def smove(self, sourcekey, destkey, member):
-
-        return await super().smove(sourcekey, destkey, member)
-
-    def _smove(self, sourcekey, destkey, member):
-
-        return super().smove(sourcekey, destkey, member)
 
     async def spop(self, key):
 
