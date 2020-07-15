@@ -247,3 +247,67 @@ class ProcessSyncDict:
             result = self._dict.__len__(*args, **kwargs)
 
         return result
+
+    def __sizeof__(self):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.__sizeof__()
+
+        return result
+
+    def clear(self):
+
+        with self._locked():
+            self._dict.clear()
+
+    def copy(self):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.copy()
+
+        return result
+
+    def get(self, *args, **kwargs):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.get(*args, **kwargs)
+
+        return result
+
+    def pop(self, k, d=None):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.pop(k, d)
+
+        return result
+
+    def popitem(self):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.popitem()
+
+        return result
+
+    def setdefault(self, *args, **kwargs):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.setdefault(*args, **kwargs)
+
+        return result
+
+    def update(self, E=None, **F):
+
+        with self._locked():
+            self._dict.update(E, **F)

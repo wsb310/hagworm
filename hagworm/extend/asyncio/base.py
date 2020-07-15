@@ -260,7 +260,7 @@ class Utils(base.Utils):
 
     @staticmethod
     def run_until_complete(future):
-        """将协程对象包装成task对象(兼容Future接口)
+        """运行事件循环直到future结束
         """
 
         loop = asyncio.events.get_event_loop()
