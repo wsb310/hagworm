@@ -30,7 +30,6 @@ class DataSource(Singleton, RedisDelegate, MongoDelegate, MySQLDelegate):
         MySQLDelegate.__init__(self)
 
         self._global_dict = GlobalDict()
-        self._refresh_online()
 
     @classmethod
     async def initialize(cls):
@@ -65,7 +64,12 @@ class DataSource(Singleton, RedisDelegate, MongoDelegate, MySQLDelegate):
     @property
     def online(self):
 
-        return Utils.loop_time() - self._global_dict[r'health_refresh_time'] < 60
+        health_refresh_time = self._global_dict.get(r'health_refresh_time', 0)
+
+        if health_refresh_time > 0:
+            return Utils.loop_time() - health_refresh_time < 60
+        else:
+            return False
 
     def _refresh_online(self):
 
