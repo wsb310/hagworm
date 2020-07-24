@@ -142,7 +142,13 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
             if (self._pool.maxsize - self._pool.size + self._pool.freesize) < REDIS_POOL_WATER_LEVEL_WARNING_LINE:
                 Utils.log.warning(
-                    f'Redis connection pool not enough: {self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+                    f'Redis connection pool not enough: '
+                    f'{self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+                )
+            else:
+                Utils.log.debug(
+                    f'Redis connection pool info: '
+                    f'{self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
                 )
 
             self._pool_or_conn = await self._pool.acquire()

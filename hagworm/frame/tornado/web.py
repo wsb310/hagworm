@@ -2,7 +2,6 @@
 
 import os
 import json
-import functools
 import aiohttp
 
 from aiohttp.web_exceptions import HTTPBadGateway
@@ -24,7 +23,7 @@ def json_wraps(func):
     """json装饰器
     """
 
-    @functools.wraps(func)
+    @Utils.func_wraps(func)
     async def _wrapper(handler, *args, **kwargs):
 
         resp = await Utils.awaitable_wrapper(
@@ -49,7 +48,7 @@ class HttpBasicAuth:
 
     def __call__(self, func):
 
-        @functools.wraps(func)
+        @Utils.func_wraps(func)
         def _wrapper(handler, *args, **kwargs):
 
             auth_header = handler.get_header(r'Authorization')
@@ -92,7 +91,7 @@ class FormInjection:
 
     def __call__(self, func):
 
-        @functools.wraps(func)
+        @Utils.func_wraps(func)
         async def _wrapper(handler: RequestBaseHandler, *args, **kwargs):
 
             form = self._form_cls(handler.request.arguments)
@@ -120,7 +119,7 @@ class DebugHeader:
 
     def __call__(self, func):
 
-        @functools.wraps(func)
+        @Utils.func_wraps(func)
         async def _wrapper(handler: RequestBaseHandler, *args, **kwargs):
 
             if self._is_debug() is True:

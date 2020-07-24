@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import asyncio
-import functools
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from multiprocessing import Lock, Manager
@@ -39,7 +38,7 @@ class ThreadWorker:
 
     def __call__(self, func):
 
-        @functools.wraps(func)
+        @Utils.func_wraps(func)
         def _wrapper(*args, **kwargs):
             return self._thread_pool.run(func, *args, **kwargs)
 
@@ -73,7 +72,7 @@ class ProcessWorker:
 
     def __call__(self, func):
 
-        @functools.wraps(func)
+        @Utils.func_wraps(func)
         def _wrapper(*args, **kwargs):
             return self._process_pool.run(func, *args, **kwargs)
 

@@ -95,6 +95,7 @@ class Utils:
 
     deepcopy = staticmethod(copy.deepcopy)
 
+    func_wraps = staticmethod(functools.wraps)
     func_partial = staticmethod(functools.partial)
 
     randint = staticmethod(random.randint)
