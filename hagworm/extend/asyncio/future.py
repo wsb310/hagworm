@@ -2,7 +2,7 @@
 
 import asyncio
 
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Lock, Manager
 from contextlib import contextmanager
 
@@ -17,15 +17,32 @@ class ThreadPool(RunnableInterface):
 
     def __init__(self, max_workers=None):
 
-        self._thread_pool = ThreadPoolExecutor(max_workers)
+        self._executor = ThreadPoolExecutor(max_workers)
 
     async def run(self, _callable, *args, **kwargs):
         """线程转协程，不支持协程函数
         """
 
-        future = self._thread_pool.submit(_callable, *args, **kwargs)
+        loop = asyncio.events.get_event_loop()
 
-        return await asyncio.wrap_future(future)
+        if kwargs:
+
+            return await loop.run_in_executor(
+                self._executor,
+                Utils.func_partial(
+                    _callable,
+                    *args,
+                    **kwargs
+                )
+            )
+
+        else:
+
+            return await loop.run_in_executor(
+                self._executor,
+                _callable,
+                *args,
+            )
 
 
 class ThreadWorker:
@@ -41,40 +58,6 @@ class ThreadWorker:
         @Utils.func_wraps(func)
         def _wrapper(*args, **kwargs):
             return self._thread_pool.run(func, *args, **kwargs)
-
-        return _wrapper
-
-
-class ProcessPool(RunnableInterface):
-    """进程池，桥接进程与协程
-    """
-
-    def __init__(self, max_workers=None):
-
-        self._process_pool = ProcessPoolExecutor(max_workers)
-
-    async def run(self, _callable, *args, **kwargs):
-        """进程转协程，不支持协程函数
-        """
-
-        future = self._process_pool.submit(_callable, *args, **kwargs)
-
-        return await asyncio.wrap_future(future)
-
-
-class ProcessWorker:
-    """通过进程转协程实现普通函数非阻塞的装饰器
-    """
-
-    def __init__(self, max_workers=None):
-
-        self._process_pool = ProcessPool(max_workers)
-
-    def __call__(self, func):
-
-        @Utils.func_wraps(func)
-        def _wrapper(*args, **kwargs):
-            return self._process_pool.run(func, *args, **kwargs)
 
         return _wrapper
 
