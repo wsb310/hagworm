@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from cacheout import LRUCache
+from cachetools import TTLCache
 
 from hagworm.extend.base import Utils
 from hagworm.extend.transaction import Transaction
@@ -13,45 +13,49 @@ class StackCache:
 
     """
 
-    def __init__(self, maxsize=0xffff, ttl=None):
+    def __init__(self, maxsize=0xff, ttl=60):
 
-        self._cache = LRUCache(maxsize, ttl)
+        self._cache = TTLCache(maxsize, ttl)
 
     def has(self, key):
 
-        return self._cache.has(key)
+        return key in self._cache
 
     def get(self, key, default=None):
 
         return self._cache.get(key, default)
 
-    def set(self, key, val, ttl=None):
+    def set(self, key, val):
 
-        self._cache.set(key, val, ttl)
+        self._cache[key] = val
 
-    def incr(self, key, val=1, ttl=None):
+    def incr(self, key, val=1):
 
-        res = self._cache.get(key, 0) + val
+        res = self.get(key, 0) + val
 
-        self._cache.set(key, res, ttl)
+        self.set(key, res)
 
         return res
 
-    def decr(self, key, val=1, ttl=None):
+    def decr(self, key, val=1):
 
-        res = self._cache.get(key, 0) - val
+        res = self.get(key, 0) - val
 
-        self._cache.set(key, res, ttl)
+        self.set(key, res)
 
         return res
 
     def delete(self, key):
 
-        return self._cache.delete(key)
+        del self._cache[key]
 
     def size(self):
 
-        return self._cache.size()
+        return len(self._cache)
+
+    def clear(self):
+
+        return self._cache.clear()
 
 
 class PeriodCounter:

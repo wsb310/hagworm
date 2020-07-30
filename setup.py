@@ -27,7 +27,7 @@ setuptools.setup(
         r'aiomysql==0.0.20',
         r'aioredis==1.3.1',
         r'async-timeout==3.0.1',
-        r'cacheout==0.11.2',
+        r'cachetools==4.1.1',
         r'crontab==0.22.8',
         r'cryptography==2.9.2',
         r'hiredis==1.0.1',

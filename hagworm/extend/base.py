@@ -35,6 +35,7 @@ import xml.dom.minidom
 from datetime import datetime, timedelta
 from contextlib import contextmanager, closing
 from collections import Iterable, OrderedDict
+from cachetools import cached, TTLCache
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from stdnum import luhn
@@ -841,6 +842,7 @@ class Utils:
             _zf.extractall(file_paths)
 
     @classmethod
+    @cached(cache=TTLCache(maxsize=0xf, ttl=1))
     def get_cpu_percent(cls):
 
         return psutil.cpu_percent()
