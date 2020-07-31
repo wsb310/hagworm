@@ -21,7 +21,7 @@ import pickle
 import psutil
 import functools
 import binascii
-import json
+import ujson
 import zlib
 import socket
 import unicodedata
@@ -144,12 +144,12 @@ class Utils:
     @classmethod
     def json_encode(cls, val, **kwargs):
 
-        return json.dumps(val, **kwargs).replace(r'</', r'<\\/')
+        return ujson.dumps(val, **kwargs)
 
     @classmethod
     def json_decode(cls, val, **kwargs):
 
-        return json.loads(cls.basestring(val), **kwargs)
+        return ujson.loads(cls.basestring(val), **kwargs)
 
     @classmethod
     def today(cls, origin=False):

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import json
 import aiohttp
 
 from aiohttp.web_exceptions import HTTPBadGateway
@@ -156,12 +155,12 @@ class LogRequestMixin:
 
         Utils.log.info(
             '\n---------- request arguments ----------\n' +
-            json.dumps(
+            Utils.json_encode(
                 {
                     key: [Utils.basestring(val) for val in items]
                     for key, items in self.request.arguments.items()
                 },
-                ensure_ascii=False, indent=4
+                escape_forward_slashes=False, ensure_ascii=False, indent=4
             )
         )
 

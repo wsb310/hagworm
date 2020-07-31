@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
 from hagworm.extend.asyncio.base import Utils
-from hagworm.frame.tornado.web import HttpBasicAuth, SocketBaseHandler, RequestBaseHandler, DownloadAgent
+from hagworm.frame.tornado.web import SocketBaseHandler, RequestBaseHandler, DownloadAgent,\
+    HttpBasicAuth, LogRequestMixin
 
 from service.base import DataSource
 
 
-class Default(RequestBaseHandler):
+class Default(RequestBaseHandler, LogRequestMixin):
 
     async def head(self):
 

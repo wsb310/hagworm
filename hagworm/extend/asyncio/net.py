@@ -2,7 +2,6 @@
 
 import os
 import ssl
-import json
 import aiohttp
 
 from enum import Enum
@@ -31,10 +30,10 @@ _CA_FILE = os.path.join(
 )
 
 
-def _json_decoder(val, *args, **kwargs):
+def _json_decoder(val, **kwargs):
 
     try:
-        return json.loads(val, *args, **kwargs)
+        return Utils.json_decode(val, **kwargs)
     except Exception as err:
         Utils.log.error(f'http client json decode error: {err} => {val}')
 

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import re
-import json
 import struct
 import threading
 
@@ -346,7 +345,7 @@ class ConfigParser(RawConfigParser):
 
         val = self.get(section, option, **kwargs)
 
-        result = json.loads(val)
+        result = Utils.json_encode(val)
 
         return result
 
