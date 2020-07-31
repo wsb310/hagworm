@@ -5,9 +5,9 @@ import numpy
 
 from ntplib import NTPClient
 
-from .base import Utils, ShareFuture, MultiTasks
+from .base import Utils, MultiTasks
 from .task import IntervalTask
-from .future import ThreadWorker
+from .future import ThreadPool
 
 from hagworm.extend.error import NTPCalibrateError
 from hagworm.extend.interface import TaskInterface
@@ -65,6 +65,7 @@ class AsyncNTPClient(_Interface):
         self._client = NTPClient()
         self._offset = 0
 
+        self._thread_pool = ThreadPool(1)
         self._sync_task = IntervalTask(self.calibrate_offset, interval)
 
         self._sampling = sampling
@@ -81,9 +82,11 @@ class AsyncNTPClient(_Interface):
 
         return self._sync_task.is_running()
 
-    @ShareFuture()
-    @ThreadWorker(1)
-    def calibrate_offset(self):
+    async def calibrate_offset(self):
+
+        return await self._thread_pool.run(self._calibrate_offset)
+
+    def _calibrate_offset(self):
 
         samples = []
         host_name = self._settings[r'host']

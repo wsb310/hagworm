@@ -1,24 +1,23 @@
 # -*- coding: utf-8 -*-
 
-from wtforms import validators, StringField
-from wtforms_tornado import Form
-
-from hagworm.extend.struct import Result
 from hagworm.extend.asyncio.base import Utils
-from hagworm.frame.tornado.web import HttpBasicAuth, FormInjection, SocketBaseHandler, RequestBaseHandler, DownloadAgent
+from hagworm.frame.tornado.web import SocketBaseHandler, RequestBaseHandler, DownloadAgent,\
+    HttpBasicAuth, LogRequestMixin
 
-from model.base import DataSource, _ModelBase
+from service.base import DataSource
 
 
-class Default(RequestBaseHandler):
+class Default(RequestBaseHandler, LogRequestMixin):
+
+    async def head(self):
+
+        await DataSource().health()
 
     async def get(self):
 
-        result = await DataSource().health()
-
         return self.render(
             r'home/default.html',
-            health=result
+            online=DataSource().online
         )
 
     def delete(self):
@@ -33,22 +32,6 @@ class Download(DownloadAgent):
     async def get(self):
 
         await self.transmit(r'https://www.baidu.com/img/bd_logo.png')
-
-
-
-class Event(RequestBaseHandler):
-
-    class _TestForm(Form):
-        event_data = StringField(r'事件数据', [validators.required()])
-
-    @FormInjection(_TestForm)
-    async def get(self):
-
-        model = _ModelBase()
-
-        await model.dispatch_event(self.data[r'event_data'])
-
-        return Result()
 
 
 class Socket(SocketBaseHandler):

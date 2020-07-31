@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import asyncio
-import functools
 
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import Lock, Manager
+from contextlib import contextmanager
 
 from hagworm.extend.interface import RunnableInterface, TaskInterface
 
@@ -14,66 +15,49 @@ class ThreadPool(RunnableInterface):
     """线程池，桥接线程与协程
     """
 
-    def __init__(self, max_workers):
+    def __init__(self, max_workers=None):
 
-        self._thread_pool = ThreadPoolExecutor(max_workers)
+        self._executor = ThreadPoolExecutor(max_workers)
 
     async def run(self, _callable, *args, **kwargs):
         """线程转协程，不支持协程函数
         """
 
-        future = self._thread_pool.submit(_callable, *args, **kwargs)
+        loop = asyncio.events.get_event_loop()
 
-        return await asyncio.wrap_future(future)
+        if kwargs:
+
+            return await loop.run_in_executor(
+                self._executor,
+                Utils.func_partial(
+                    _callable,
+                    *args,
+                    **kwargs
+                )
+            )
+
+        else:
+
+            return await loop.run_in_executor(
+                self._executor,
+                _callable,
+                *args,
+            )
 
 
 class ThreadWorker:
     """通过线程转协程实现普通函数非阻塞的装饰器
     """
 
-    def __init__(self, max_workers):
+    def __init__(self, max_workers=None):
 
         self._thread_pool = ThreadPool(max_workers)
 
     def __call__(self, func):
 
-        @functools.wraps(func)
+        @Utils.func_wraps(func)
         def _wrapper(*args, **kwargs):
             return self._thread_pool.run(func, *args, **kwargs)
-
-        return _wrapper
-
-
-class ProcessPool(RunnableInterface):
-    """进程池，桥接进程与协程
-    """
-
-    def __init__(self, max_workers):
-
-        self._process_pool = ProcessPoolExecutor(max_workers)
-
-    async def run(self, _callable, *args, **kwargs):
-        """进程转协程，不支持协程函数
-        """
-
-        future = self._process_pool.submit(_callable, *args, **kwargs)
-
-        return await asyncio.wrap_future(future)
-
-
-class ProcessWorker:
-    """通过进程转协程实现普通函数非阻塞的装饰器
-    """
-
-    def __init__(self, max_workers):
-
-        self._process_pool = ProcessPool(max_workers)
-
-    def __call__(self, func):
-
-        @functools.wraps(func)
-        def _wrapper(*args, **kwargs):
-            return self._process_pool.run(func, *args, **kwargs)
 
         return _wrapper
 
@@ -116,17 +100,17 @@ class SubProcess(TaskInterface):
     @property
     def stdin(self):
 
-        return self._stdin
+        return self._process.stdin if self._process is not None else None
 
     @property
     def stdout(self):
 
-        return self._stdout
+        return self._process.stdout if self._process is not None else None
 
     @property
     def stderr(self):
 
-        return self._stderr
+        return self._process.stderr if self._process is not None else None
 
     def is_running(self):
 
@@ -179,3 +163,133 @@ class SubProcess(TaskInterface):
             Utils.log.error(err)
         finally:
             await self.stop()
+
+
+class ProcessSyncDict:
+
+    def __init__(self, lock: Lock = None, manager: Manager = None):
+
+        self._lock = lock if lock is not None else Lock()
+        self._dict = manager.dict() if manager is not None else Manager().dict()
+
+    @contextmanager
+    def _locked(self):
+
+        self._lock.acquire()
+
+        try:
+            yield
+        except Exception as err:
+            Utils.log.error(err)
+        finally:
+            self._lock.release()
+
+    def __contains__(self, *args, **kwargs):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.__contains__(*args, **kwargs)
+
+        return result
+
+    def __delitem__(self, *args, **kwargs):
+
+        with self._locked():
+            self._dict.__delitem__(*args, **kwargs)
+
+    def __getitem__(self, *args, **kwargs):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.__getitem__(*args, **kwargs)
+
+        return result
+
+    def __setitem__(self, *args, **kwargs):
+
+        with self._locked():
+            self._dict.__setitem__(*args, **kwargs)
+
+    def __repr__(self, *args, **kwargs):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.__repr__(*args, **kwargs)
+
+        return result
+
+    def __len__(self, *args, **kwargs):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.__len__(*args, **kwargs)
+
+        return result
+
+    def __sizeof__(self):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.__sizeof__()
+
+        return result
+
+    def clear(self):
+
+        with self._locked():
+            self._dict.clear()
+
+    def copy(self):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.copy()
+
+        return result
+
+    def get(self, *args, **kwargs):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.get(*args, **kwargs)
+
+        return result
+
+    def pop(self, k, d=None):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.pop(k, d)
+
+        return result
+
+    def popitem(self):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.popitem()
+
+        return result
+
+    def setdefault(self, *args, **kwargs):
+
+        result = None
+
+        with self._locked():
+            result = self._dict.setdefault(*args, **kwargs)
+
+        return result
+
+    def update(self, E=None, **F):
+
+        with self._locked():
+            self._dict.update(E, **F)

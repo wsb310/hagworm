@@ -14,18 +14,15 @@ class QueueBuffer:
 
         self._maxsize = maxsize
 
-        self._timer = IntervalTask.create(timeout, False, self._check) if timeout > 0 else None
+        self._timer = IntervalTask.create(timeout, False, self._handle_buffer) if timeout > 0 else None
 
         self._data_list = []
 
-    async def _check(self):
+    def _handle_buffer(self):
 
-        if len(self._data_list) == 0:
-            return
-
-        data_list, self._data_list = self._data_list, []
-
-        await self._run(data_list)
+        if len(self._data_list) > 0:
+            data_list, self._data_list = self._data_list, []
+            Utils.call_soon(self._run, data_list)
 
     async def _run(self, data_list):
         raise NotImplementedError()
@@ -35,16 +32,14 @@ class QueueBuffer:
         self._data_list.append(data)
 
         if len(self._data_list) >= self._maxsize:
-            _data_list, self._data_list = self._data_list, []
-            Utils.call_soon(self._run, _data_list)
+            self._handle_buffer()
 
     def extend(self, data_list):
 
         self._data_list.extend(data_list)
 
         if len(self._data_list) >= self._maxsize:
-            _data_list, self._data_list = self._data_list, []
-            Utils.call_soon(self._run, _data_list)
+            self._handle_buffer()
 
 
 class FileBuffer(ContextManager):

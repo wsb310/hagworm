@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import json
-import functools
 import aiohttp
 
 from aiohttp.web_exceptions import HTTPBadGateway
@@ -24,8 +22,9 @@ def json_wraps(func):
     """json装饰器
     """
 
-    @functools.wraps(func)
+    @Utils.func_wraps(func)
     async def _wrapper(handler, *args, **kwargs):
+
         resp = await Utils.awaitable_wrapper(
             func(handler, *args, **kwargs)
         )
@@ -48,7 +47,7 @@ class HttpBasicAuth:
 
     def __call__(self, func):
 
-        @functools.wraps(func)
+        @Utils.func_wraps(func)
         def _wrapper(handler, *args, **kwargs):
 
             auth_header = handler.get_header(r'Authorization')
@@ -91,7 +90,7 @@ class FormInjection:
 
     def __call__(self, func):
 
-        @functools.wraps(func)
+        @Utils.func_wraps(func)
         async def _wrapper(handler: RequestBaseHandler, *args, **kwargs):
 
             form = self._form_cls(handler.request.arguments)
@@ -119,7 +118,7 @@ class DebugHeader:
 
     def __call__(self, func):
 
-        @functools.wraps(func)
+        @Utils.func_wraps(func)
         async def _wrapper(handler: RequestBaseHandler, *args, **kwargs):
 
             if self._is_debug() is True:
@@ -153,14 +152,15 @@ class DebugHeader:
 class LogRequestMixin:
 
     def log_request(self):
+
         Utils.log.info(
             '\n---------- request arguments ----------\n' +
-            json.dumps(
+            Utils.json_encode(
                 {
                     key: [Utils.basestring(val) for val in items]
                     for key, items in self.request.arguments.items()
                 },
-                ensure_ascii=False, indent=4
+                escape_forward_slashes=False, ensure_ascii=False, indent=4
             )
         )
 
@@ -171,76 +171,88 @@ class _BaseHandlerMixin(Utils):
 
     @property
     def request_module(self):
+
         return f'{self.module}.{self.method}'
 
     @property
     def module(self):
+
         _class = self.__class__
 
         return f'{_class.__module__}.{_class.__name__}'
 
     @property
     def method(self):
+
         return self.request.method.lower()
 
     @property
     def version(self):
+
         return self.request.version.lower()
 
     @property
     def protocol(self):
+
         return self.request.protocol
 
     @property
     def host(self):
+
         return self.request.host
 
     @property
     def path(self):
+
         return self.request.path
 
     @property
     def query(self):
+
         return self.request.query
 
     @property
     def body(self):
+
         return self.request.body
 
     @property
     def files(self):
+
         return self.request.files
 
     @property
-    def closed(self):
-        return self.request.connection.stream.closed()
-
-    @property
     def referer(self):
+
         return self.get_header(r'Referer', r'')
 
     @property
     def client_ip(self):
+
         return self.get_header(r'X-Real-IP', self.request.remote_ip)
 
     @property
     def content_type(self):
+
         return self.get_header(r'Content-Type', r'')
 
     @property
     def content_length(self):
+
         result = self.get_header(r'Content-Length', r'')
 
         return int(result) if result.isdigit() else 0
 
     @property
     def headers(self):
+
         return self.request.headers
 
     def get_header(self, name, default=None):
         """
         获取header数据
         """
+
         return self.request.headers.get(name, default)
 
 
@@ -248,14 +260,13 @@ class SocketBaseHandler(WebSocketHandler, _BaseHandlerMixin):
     """WebSocket请求处理类
     """
 
-    def initialize(self, **kwargs):
-        setattr(self, r'_payload', kwargs)
-
     @property
-    def payload(self):
-        return getattr(self, r'_payload', None)
+    def closed(self):
+
+        return self.ws_connection is None
 
     def check_origin(self, origin):
+
         return True
 
 
@@ -271,6 +282,11 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
     def payload(self):
 
         return getattr(self, r'_payload', None)
+
+    @property
+    def closed(self):
+
+        return self.request.connection.stream.closed()
 
     def head(self, *_1, **_2):
 
@@ -379,6 +395,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
         """
         获取files数据
         """
+
         result = []
 
         file_data = self.files.get(name, None)
@@ -399,6 +416,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
         """
         获取str型输入
         """
+
         result = self.get_argument(name, None, True)
 
         if result is None:
@@ -416,6 +434,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
         """
         获取bool型输入
         """
+
         result = self.get_argument(name, None, True)
 
         if result is None:
@@ -429,6 +448,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
         """
         获取int型输入
         """
+
         result = self.get_argument(name, None, True)
 
         if result is None:
@@ -443,6 +463,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
         """
         获取float型输入
         """
+
         result = self.get_argument(name, None, True)
 
         if result is None:
@@ -491,6 +512,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
         """
         输出JSON类型
         """
+
         self.set_header(r'Content-Type', r'application/json')
 
         if status_code != 200:
@@ -509,6 +531,7 @@ class RequestBaseHandler(RequestHandler, _BaseHandlerMixin):
         """
         输出PNG类型
         """
+
         self.set_header(r'Content-Type', r'image/png')
 
         return self.finish(chunk)

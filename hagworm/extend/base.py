@@ -21,7 +21,7 @@ import pickle
 import psutil
 import functools
 import binascii
-import json
+import ujson
 import zlib
 import socket
 import unicodedata
@@ -35,6 +35,7 @@ import xml.dom.minidom
 from datetime import datetime, timedelta
 from contextlib import contextmanager, closing
 from collections import Iterable, OrderedDict
+from cachetools import cached, TTLCache
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from stdnum import luhn
@@ -95,6 +96,7 @@ class Utils:
 
     deepcopy = staticmethod(copy.deepcopy)
 
+    func_wraps = staticmethod(functools.wraps)
     func_partial = staticmethod(functools.partial)
 
     randint = staticmethod(random.randint)
@@ -142,12 +144,12 @@ class Utils:
     @classmethod
     def json_encode(cls, val, **kwargs):
 
-        return json.dumps(val, **kwargs).replace(r'</', r'<\\/')
+        return ujson.dumps(val, **kwargs)
 
     @classmethod
     def json_decode(cls, val, **kwargs):
 
-        return json.loads(cls.basestring(val), **kwargs)
+        return ujson.loads(cls.basestring(val), **kwargs)
 
     @classmethod
     def today(cls, origin=False):
@@ -840,6 +842,7 @@ class Utils:
             _zf.extractall(file_paths)
 
     @classmethod
+    @cached(cache=TTLCache(maxsize=0xf, ttl=1))
     def get_cpu_percent(cls):
 
         return psutil.cpu_percent()

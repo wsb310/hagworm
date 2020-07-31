@@ -55,11 +55,13 @@ class _LauncherBase(TaskInterface):
         self._process_id = 0
         self._process_num = self._process_num if self._process_num > 0 else cpu_count()
 
+        # 后台服务任务对象
         if self._background_service is None:
             pass
         elif not isinstance(self._background_service, TaskInterface):
             raise TypeError(r'Background Service Dot Implemented Task Interface')
 
+        # 服务进程任务对象，服务进程不监听端口
         if self._background_process is None:
             pass
         elif isinstance(self._background_process, TaskInterface):
@@ -145,7 +147,7 @@ class _LauncherBase(TaskInterface):
 
         self._event_loop.run_forever()
 
-    def stop(self, code=0, frame=None):
+    def stop(self, code=0):
 
         if self._background_service is not None:
             self._background_service.stop()
@@ -215,10 +217,10 @@ class Launcher(_LauncherBase):
         self._event_loop = asyncio.get_event_loop()
         self._event_loop.set_debug(self._settings[r'debug'])
 
-        self._server = HTTPServer(_Application(**self._settings))
+        self._event_loop.add_signal_handler(signal.SIGINT, self.stop)
+        self._event_loop.add_signal_handler(signal.SIGTERM, self.stop)
 
-        signal.signal(signal.SIGINT, self.stop)
-        signal.signal(signal.SIGTERM, self.stop)
+        self._server = HTTPServer(_Application(**self._settings))
 
         if self._async_initialize:
             self._event_loop.run_until_complete(self._async_initialize())

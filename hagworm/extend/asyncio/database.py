@@ -115,6 +115,11 @@ class MongoDelegate:
 
         self._mongo_pool = MongoPool(*args, **kwargs)
 
+    @property
+    def mongo_pool(self):
+
+        return self._mongo_pool
+
     async def mongo_health(self):
 
         result = False
@@ -318,6 +323,16 @@ class MySQLDelegate:
 
         self._mysql_rw_client_context = WeakContextVar(f'mysql_rw_client_{context_uuid}')
         self._mysql_ro_client_context = WeakContextVar(f'mysql_ro_client_{context_uuid}')
+
+    @property
+    def mysql_rw_pool(self):
+
+        return self._mysql_rw_pool
+
+    @property
+    def mysql_ro_pool(self):
+
+        return self._mysql_ro_pool
 
     async def async_init_mysql_rw(self, *args, **kwargs):
 

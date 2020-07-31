@@ -7,8 +7,6 @@ from aioredis.commands.string import StringCommandsMixin
 from aioredis.commands.transaction import Pipeline, MultiExec
 from aioredis.errors import ReplyError, MaxClientsError, AuthError, ReadOnlyError
 
-from contextlib import asynccontextmanager
-
 from .base import Utils, WeakContextVar, AsyncContextManager, AsyncCirculator
 from .event import DistributedEvent
 from .ntp import NTPClient
@@ -43,7 +41,7 @@ class RedisPool:
 
         self._pool = yield from aioredis.create_pool(**self._settings).__await__()
 
-        Utils.log.info(f"Redis {self._settings[r'address']} initialized")
+        Utils.log.info(f"Redis {self._settings[r'address']} initialized: {self._pool.size}/{self._pool.maxsize}")
 
         return self
 
@@ -66,6 +64,11 @@ class RedisDelegate:
         self._redis_pool = None
 
         self._cache_client_context = WeakContextVar(f'cache_client_{Utils.uuid1()}')
+
+    @property
+    def redis_pool(self):
+
+        return self._redis_pool
 
     async def async_init_redis(self, *args, **kwargs):
 
@@ -109,6 +112,10 @@ class RedisDelegate:
 
         return DistributedEvent(self._redis_pool, channel_name, channel_count)
 
+    def period_counter(self, time_slice: int, key_prefix: str = r'', ntp_client: NTPClient = None):
+
+        return PeriodCounter(self._redis_pool, time_slice, key_prefix, ntp_client)
+
 
 class CacheClient(aioredis.Redis, AsyncContextManager):
     """Redis客户端对象，使用with进行上下文管理
@@ -135,7 +142,13 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
             if (self._pool.maxsize - self._pool.size + self._pool.freesize) < REDIS_POOL_WATER_LEVEL_WARNING_LINE:
                 Utils.log.warning(
-                    f'Redis connection pool not enough: {self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+                    f'Redis connection pool not enough: '
+                    f'{self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
+                )
+            else:
+                Utils.log.debug(
+                    f'Redis connection pool info: '
+                    f'{self._pool.freesize}({self._pool.size}/{self._pool.maxsize})'
                 )
 
             self._pool_or_conn = await self._pool.acquire()
@@ -159,19 +172,6 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
     async def release(self):
 
         await self._close_conn()
-
-    @asynccontextmanager
-    async def catch_error(self):
-
-        try:
-
-            yield
-
-        except Exception as err:
-
-            Utils.log.exception(err)
-
-            await self._close_conn(True)
 
     async def _safe_execute(self, func, *args, **kwargs):
 
@@ -248,11 +248,11 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     def multi_exec(self):
 
-        return MultiExec(self._pool, aioredis.Redis, loop=self._pool._loop)
+        return MultiExec(self._pool, aioredis.Redis)
 
     def pipeline(self):
 
-        return Pipeline(self._pool, aioredis.Redis, loop=self._pool._loop)
+        return Pipeline(self._pool, aioredis.Redis)
 
     # PUB/SUB COMMANDS
 
@@ -473,6 +473,99 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
     def _setnx(self, key, value):
 
         return super().setnx(key, value)
+
+    # SET COMMANDS
+
+    async def sdiff(self, key, *keys):
+
+        result = await super().sdiff(key, *keys)
+
+        if result is not None:
+            result = [Utils.basestring(val) for val in result]
+
+        return result
+
+    def _sdiff(self, key, *keys):
+
+        return super().sdiff(key, *keys)
+
+    async def sinter(self, key, *keys):
+
+        result = await super().sinter(key, *keys)
+
+        if result is not None:
+            result = [Utils.basestring(val) for val in result]
+
+        return result
+
+    def _sinter(self, key, *keys):
+
+        return super().sinter(key, *keys)
+
+    async def smembers(self, key):
+
+        result = await super().smembers(key)
+
+        if result is not None:
+            result = [Utils.basestring(val) for val in result]
+
+        return result
+
+    def _smembers(self, key, *, encoding=_NOTSET):
+
+        return super().smembers(key, encoding=encoding)
+
+    async def spop(self, key):
+
+        result = await super().spop(key)
+
+        if result is not None:
+            result = Utils.basestring(result)
+
+        return result
+
+    def _spop(self, key, *, encoding=_NOTSET):
+
+        return super().spop(key, encoding=encoding)
+
+    async def srandmember(self, key, count=1):
+
+        result = await super().srandmember(key, count)
+
+        if result is not None:
+            result = [Utils.basestring(val) for val in result]
+
+        return result
+
+    def _srandmember(self, key, count=None):
+
+        return super().srandmember(key, count)
+
+    async def sunion(self, key, *keys):
+
+        result = await super().sunion(key, *keys)
+
+        if result is not None:
+            result = [Utils.basestring(val) for val in result]
+
+        return result
+
+    def _sunion(self, key, *keys):
+
+        return super().sunion(key, *keys)
+
+    async def sscan(self, key, cursor=0, match=None, count=None):
+
+        result = await super().sscan(key, cursor, match, count)
+
+        if result is not None:
+            result = (result[0], [Utils.basestring(val) for val in result[1]])
+
+        return result
+
+    def _sscan(self, key, cursor=0, match=None, count=None):
+
+        return super().sscan(key, cursor, match, count)
 
     # HASH COMMANDS
 
@@ -782,10 +875,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     def _rpush(self, key, value, *values):
 
-        _value = self._val_encode(value)
-        _values = [self._val_encode(val) for val in values]
-
-        return super().rpush(key, _value, *_values)
+        return super().rpush(key, value, *values)
 
     async def rpushx(self, key, value):
 
@@ -797,9 +887,7 @@ class CacheClient(aioredis.Redis, AsyncContextManager):
 
     def _rpushx(self, key, value):
 
-        _value = self._val_encode(value)
-
-        return super().rpushx(key, _value)
+        return super().rpushx(key, value)
 
 
 class MLock(AsyncContextManager):
@@ -959,17 +1047,20 @@ class PeriodCounter:
 
     MIN_EXPIRE = 60
 
-    def __init__(self, ntp_client: NTPClient, cache_pool: RedisPool, time_slice: int, key_prefix: str = r''):
+    def __init__(self, cache_pool: RedisPool, time_slice: int, key_prefix: str = r'', ntp_client: NTPClient = None):
 
-        self._ntp_client = ntp_client
         self._cache_pool = cache_pool
 
         self._time_slice = time_slice
         self._key_prefix = key_prefix
 
+        self._ntp_client = ntp_client
+
     def _get_key(self, key: str = None) -> str:
 
-        time_period = Utils.math.floor(self._ntp_client.timestamp / self._time_slice)
+        timestamp = Utils.timestamp() if self._ntp_client is None else self._ntp_client.timestamp
+
+        time_period = Utils.math.floor(timestamp / self._time_slice)
 
         if key is None:
             return f'{self._key_prefix}_{time_period}'

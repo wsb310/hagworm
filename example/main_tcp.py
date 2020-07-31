@@ -10,7 +10,7 @@ from hagworm.frame.tornado.socket import Protocol, Launcher
 from hagworm.extend.base import Utils
 
 from setting import ConfigStatic, ConfigDynamic
-from model.base import DataSource
+from service.base import DataSource
 
 
 class EchoProtocol(Protocol):

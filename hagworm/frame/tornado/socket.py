@@ -150,10 +150,10 @@ class Launcher(_LauncherBase):
         self._event_loop = asyncio.get_event_loop()
         self._event_loop.set_debug(self._debug)
 
-        self._server = _TCPServer(protocol, **self._settings)
+        self._event_loop.add_signal_handler(signal.SIGINT, self.stop)
+        self._event_loop.add_signal_handler(signal.SIGTERM, self.stop)
 
-        signal.signal(signal.SIGINT, self.stop)
-        signal.signal(signal.SIGTERM, self.stop)
+        self._server = _TCPServer(protocol, **self._settings)
 
         if self._async_initialize:
             self._event_loop.run_until_complete(self._async_initialize())

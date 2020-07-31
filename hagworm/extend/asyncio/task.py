@@ -14,18 +14,6 @@ class _BaseTask(TaskInterface):
     """异步任务基类
     """
 
-    @classmethod
-    def create(cls, promptly, _callable, *args, **kwargs):
-
-        if args or kwargs:
-            _callable = Utils.func_partial(_callable, *args, **kwargs)
-
-        task = cls(_callable)
-
-        task.start(promptly)
-
-        return task
-
     def __init__(self, _callable):
 
         self._running = False

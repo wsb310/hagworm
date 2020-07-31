@@ -14,7 +14,7 @@ class TestCache:
 
     async def test_stack_cache(self):
 
-        cache = StackCache()
+        cache = StackCache(ttl=0.5)
 
         ckey = Utils.uuid1()
         cval = Utils.uuid1()
@@ -24,7 +24,7 @@ class TestCache:
 
         assert not res1 and res2 == 0
 
-        cache.set(ckey, cval, 0.5)
+        cache.set(ckey, cval)
 
         res3 = cache.has(ckey)
         res4 = cache.get(ckey)

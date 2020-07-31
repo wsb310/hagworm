@@ -9,8 +9,6 @@ router = [
 
     (r'/download/?', home.Download),
 
-    (r'/event/?', home.Event),
-
     (r'/socket/(\w+)/?', home.Socket),
 
 ]

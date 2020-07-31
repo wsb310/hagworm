@@ -4,8 +4,10 @@ import types
 import weakref
 import inspect
 import asyncio
-import functools
 
+import async_timeout
+
+from contextlib import asynccontextmanager
 from contextvars import Context, ContextVar
 
 from hagworm import package_slogan
@@ -260,12 +262,37 @@ class Utils(base.Utils):
 
     @staticmethod
     def run_until_complete(future):
-        """将协程对象包装成task对象(兼容Future接口)
+        """运行事件循环直到future结束
         """
 
         loop = asyncio.events.get_event_loop()
 
         return loop.run_until_complete(future)
+
+    @staticmethod
+    @asynccontextmanager
+    async def async_timeout(timeout):
+        """异步超时等待
+
+        async with timeout(1.5) as res:
+            pass
+        print(res.expired)
+
+        """
+
+        try:
+
+            async with async_timeout.timeout(timeout) as res:
+                yield res
+
+        except base.Ignore as err:
+
+            if err.throw():
+                raise err
+
+        except Exception as err:
+
+            Utils.log.exception(err)
 
 
 def async_adapter(func):
@@ -275,7 +302,7 @@ def async_adapter(func):
 
     """
 
-    @functools.wraps(func)
+    @base.Utils.func_wraps(func)
     def _wrapper(*args, **kwargs):
 
         return Utils.create_task(
@@ -693,7 +720,7 @@ class FuncCache:
 
     def __call__(self, func):
 
-        @functools.wraps(func)
+        @base.Utils.func_wraps(func)
         async def _wrapper(*args, **kwargs):
 
             func_sign = Utils.params_sign(func, *args, **kwargs)
@@ -726,7 +753,7 @@ class ShareFuture:
 
     def __call__(self, func):
 
-        @functools.wraps(func)
+        @base.Utils.func_wraps(func)
         async def _wrapper(*args, **kwargs):
 
             future = None

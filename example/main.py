@@ -10,7 +10,7 @@ from hagworm.frame.tornado.base import Launcher
 
 from routing import router
 from setting import ConfigStatic, ConfigDynamic
-from model.base import DataSource
+from service.base import GlobalDict, DataSource
 
 
 def main():
@@ -23,6 +23,9 @@ def main():
     else:
         ConfigStatic.read(f'./static.{cluster.lower()}.conf')
         ConfigDynamic.read(f'./dynamic.{cluster.lower()}.conf')
+
+    # 初始化全局变量字典（进程间同步）
+    GlobalDict()
 
     Launcher(
         router,
