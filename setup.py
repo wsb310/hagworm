@@ -51,12 +51,12 @@ setuptools.setup(
         r'SQLAlchemy==1.3.18',
         r'tornado==6.0.4',
         r'terminal-table==1.0.8',
-        r'uvloop==0.14.0',
         r'ujson==3.0.0',
         r'WTForms==2.3.1',
         r'wtforms-tornado==0.0.2',
         r'xlwt==1.3.0',
         r'xmltodict==0.12.0',
+        r'uvloop==0.14.0 ; sys_platform!="win32"',
     ],
     classifiers=[
         r'Programming Language :: Python :: 3.7',

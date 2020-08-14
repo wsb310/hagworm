@@ -24,7 +24,7 @@ def install_uvloop():
     try:
         import uvloop
     except ModuleNotFoundError:
-        Utils.log.warning(f'uvloop is not supported')
+        Utils.log.warning(f'uvloop is not supported (T＿T)')
     else:
         uvloop.install()
         Utils.log.success(f'uvloop {uvloop.__version__} installed')
