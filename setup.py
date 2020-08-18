@@ -50,7 +50,7 @@ setuptools.setup(
         r'Sphinx==3.1.1',
         r'SQLAlchemy==1.3.18',
         r'tornado==6.0.4',
-        r'terminal-table==1.0.8',
+        r'terminal-table==2.0.1',
         r'ujson==3.0.0',
         r'WTForms==2.3.1',
         r'wtforms-tornado==0.0.2',
