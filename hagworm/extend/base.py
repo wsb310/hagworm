@@ -154,14 +154,14 @@ class Utils:
     @classmethod
     def today(cls, origin=False):
 
-        result = datetime.today()
+        result = datetime.now()
 
         return result.replace(hour=0, minute=0, second=0, microsecond=0) if origin else result
 
     @classmethod
     def yesterday(cls, origin=False):
 
-        result = datetime.today() - timedelta(days=1)
+        result = datetime.now() - timedelta(days=1)
 
         return result.replace(hour=0, minute=0, second=0, microsecond=0) if origin else result
 

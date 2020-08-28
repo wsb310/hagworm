@@ -13,6 +13,7 @@ from contextvars import Context, ContextVar
 from hagworm import package_slogan
 from hagworm import __version__ as package_version
 from hagworm.extend import base
+from hagworm.extend.logging import DEFAULT_LOG_FILE_ROTATOR
 from hagworm.extend.cache import StackCache
 from hagworm.extend.interface import RunnableInterface
 
@@ -38,7 +39,8 @@ class Launcher(RunnableInterface):
     """
 
     def __init__(self,
-                 log_file_path=None, log_level=r'INFO', log_file_num_backups=7,
+                 log_file_path=None, log_level=r'INFO',
+                 log_file_rotation=DEFAULT_LOG_FILE_ROTATOR, log_file_retention=0xff,
                  process_number=1, process_guardian=None,
                  debug=False
                  ):
@@ -58,8 +60,8 @@ class Launcher(RunnableInterface):
                 level=log_level,
                 enqueue=True,
                 backtrace=debug,
-                rotation=r'00:00',
-                retention=log_file_num_backups
+                rotation=log_file_rotation,
+                retention=log_file_retention
             )
 
         else:

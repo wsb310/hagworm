@@ -6,6 +6,7 @@ import sys
 os.chdir(os.path.dirname(__file__))
 sys.path.insert(0, os.path.abspath(r'../'))
 
+from hagworm.extend.logging import LogFileRotator
 from hagworm.frame.tornado.base import Launcher
 
 from routing import router
@@ -38,7 +39,8 @@ def main():
         cookie_secret=ConfigDynamic.Secret,
         log_level=ConfigDynamic.LogLevel,
         log_file_path=ConfigDynamic.LogFilePath,
-        log_file_num_backups=ConfigDynamic.LogFileBackups,
+        log_file_rotation=LogFileRotator.make(ConfigDynamic.LogFileSplitSize, ConfigDynamic.LogFileSplitTime),
+        log_file_retention=ConfigDynamic.LogFileBackups,
     ).start()
 
 

@@ -4,6 +4,7 @@ import os
 
 from terminal_table import Table
 
+from hagworm.extend.logging import DEFAULT_LOG_FILE_ROTATOR
 from hagworm.extend.interface import RunnableInterface
 from hagworm.extend.asyncio.base import Launcher as _Launcher
 from hagworm.extend.asyncio.base import Utils, MultiTasks, AsyncCirculatorForSecond
@@ -44,7 +45,8 @@ class Guardian(RunnableInterface):
 class Launcher(_Launcher):
 
     def __init__(self,
-                 log_file_path=None, log_level=r'INFO', log_file_num_backups=7,
+                 log_file_path=None, log_level=r'INFO',
+                 log_file_rotation=DEFAULT_LOG_FILE_ROTATOR, log_file_retention=0xff,
                  process_number=1, process_guardian=None,
                  debug=False
                  ):
@@ -53,7 +55,7 @@ class Launcher(_Launcher):
             process_guardian = Guardian().run
 
         super().__init__(
-            log_file_path, log_level, log_file_num_backups,
+            log_file_path, log_level, log_file_rotation, log_file_retention,
             process_number, process_guardian,
             debug
         )

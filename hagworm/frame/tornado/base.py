@@ -18,24 +18,10 @@ from tornado.platform.asyncio import AsyncIOMainLoop
 from hagworm import package_slogan
 from hagworm import __version__ as package_version
 from hagworm.extend.base import Utils
+from hagworm.extend.logging import DEFAULT_LOG_FILE_ROTATOR, DEFAULT_LOG_INTERCEPTOR
 from hagworm.extend.interface import TaskInterface
 from hagworm.extend.asyncio.base import install_uvloop
 from hagworm.frame.tornado.web import LogRequestMixin
-
-
-class _InterceptHandler(logging.Handler):
-    """日志监听器
-    """
-
-    def emit(self, record):
-
-        Utils.log.opt(
-            depth=6,
-            exception=record.exc_info
-        ).log(
-            record.levelname,
-            record.getMessage()
-        )
 
 
 class _LauncherBase(TaskInterface):
@@ -73,7 +59,8 @@ class _LauncherBase(TaskInterface):
             kwargs.get(r'log_level', r'info').upper(),
             kwargs.get(r'log_handler', None),
             kwargs.get(r'log_file_path', None),
-            kwargs.get(r'log_file_num_backups', 7)
+            kwargs.get(r'log_file_rotation', DEFAULT_LOG_FILE_ROTATOR),
+            kwargs.get(r'log_file_retention', 0xff)
         )
 
         environment = Utils.environment()
@@ -89,7 +76,10 @@ class _LauncherBase(TaskInterface):
 
         self._event_loop = None
 
-    def _init_logger(self, log_level, log_handler=None, log_file_path=None, log_file_num_backups=7):
+    def _init_logger(self,
+                     log_level, log_handler=None, log_file_path=None,
+                     log_file_rotation=DEFAULT_LOG_FILE_ROTATOR, log_file_retention=0xff
+                     ):
 
         if log_handler or log_file_path:
 
@@ -116,15 +106,15 @@ class _LauncherBase(TaskInterface):
                     level=log_level,
                     enqueue=True,
                     backtrace=self._debug,
-                    rotation=r'00:00',
-                    retention=log_file_num_backups
+                    rotation=log_file_rotation,
+                    retention=log_file_retention
                 )
 
         else:
 
             Utils.log.level(log_level)
 
-        logging.getLogger(None).addHandler(_InterceptHandler())
+        logging.getLogger(None).addHandler(DEFAULT_LOG_INTERCEPTOR)
 
     @property
     def process_id(self):
