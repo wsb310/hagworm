@@ -87,6 +87,10 @@ class _Dynamic(Configure):
 
         self.LogFilePath = self._parser.get(r'Log', r'LogFilePath')
 
+        self.LogFileSplitSize = self._parser.getint(r'Log', r'LogFileSplitSize')
+
+        self.LogFileSplitTime = self._parser.get(r'Log', r'LogFileSplitTime')
+
         self.LogFileBackups = self._parser.getint(r'Log', r'LogFileBackups')
 
         ##################################################
